@@ -99,6 +99,19 @@ async function waitForServer(proc) {
     await page.waitForFunction(() => document.querySelectorAll('.discovery-card').length===1);
     await page.locator('button[data-discovery-category="all"]').click();
     await page.screenshot({path:path.join(evidence,'02-private-discovery.png'),fullPage:true});
+    await page.locator('[data-translate-item="browser-candidate-rna"]').click();
+    await page.locator('#translation-dialog[open]').waitFor();
+    await page.getByText('RNA 生物学论文线索',{exact:true}).last().waitFor();
+    assert.equal(await page.locator('#auto-translate').isDisabled(),true,'provider not configured');
+    await page.locator('#translation-form textarea[name="title_zh"]').fill('RNA 生物学论文：中文标题');
+    await page.locator('#translation-form textarea[name="summary_zh"]').fill('人工核对后的中文摘要');
+    await page.locator('#translation-form button[type="submit"]').click();
+    await page.getByText('已保存到私人数据库',{exact:false}).waitFor();
+    await page.locator('#translation-close').click();
+    await page.locator('[data-translate-item="browser-candidate-rna"]').click();
+    assert.equal(await page.locator('#translation-form textarea[name="title_zh"]').inputValue(),'RNA 生物学论文：中文标题');
+    await page.screenshot({path:path.join(evidence,'05-private-bilingual.png'),fullPage:true});
+    await page.locator('#translation-close').click();
 
     await page.locator('button[data-discover-mode="saved"]').click();
     await page.locator('input[name="url"]').fill('https://github.com/example/repro-project?utm_source=xhs');
