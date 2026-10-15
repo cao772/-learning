@@ -1,4 +1,6 @@
 import copy
+import io
+import sqlite3
 import json
 import tempfile
 import unittest
@@ -6,6 +8,7 @@ from pathlib import Path
 from werkzeug.security import generate_password_hash
 from hub.app import create_app, ingest, connection
 from hub.manage import backup
+from hub.offsite_stream import stream_backup
 
 class HubTests(unittest.TestCase):
  def setUp(self):
@@ -35,6 +38,17 @@ class HubTests(unittest.TestCase):
   self.assertEqual(self.c.get('/admin').status_code,200)
   self.assertIn('OWNER-SECRET',self.c.get('/api/items').get_data(as_text=True))
   self.assertIn('/static/course-sync.js',self.c.get('/learn/llm').get_data(as_text=True))
+ def test_offsite_snapshot_stream_is_valid_and_consistent(self):
+  self.login()
+  self.put('private-offsite-check',{'note':'test-only'})
+  destination=io.BytesIO()
+  stream_backup(self.db,destination,self.tmp.name)
+  exported=Path(self.tmp.name)/'offsite-copy.sqlite'
+  exported.write_bytes(destination.getvalue())
+  with sqlite3.connect(exported) as copied:
+   self.assertEqual(copied.execute('PRAGMA integrity_check').fetchone()[0],'ok')
+   row=copied.execute('SELECT body FROM personal WHERE id=?',('private-offsite-check',)).fetchone()
+   self.assertIn('test-only',row[0])
  def test_database_lookup_indexes_preserved(self):
   with connection(self.db) as db:
    indexes={row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='index'")}
