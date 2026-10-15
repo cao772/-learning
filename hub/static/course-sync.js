@@ -1,5 +1,5 @@
 /* Server-only bridge. Original offline course files are never rewritten. */
-(()=>{const keys=['xunxu-llm-course-v1','xunxu-llm-course-v2','xunxu-llm-course-v3','xunxu-knowledge-lab-v1'];let csrf='',revisions={},timers={},pending={},busy={};const original=Storage.prototype.setItem;let message='';
+(()=>{const keys=['xunxu-llm-course-v1','xunxu-llm-course-v2','xunxu-llm-course-v3','xunxu-knowledge-lab-v1'];let csrf='',revisions={},timers={},pending={},busy={},blocked={};const original=Storage.prototype.setItem;let message='';
 function stable(x){return JSON.stringify(x,(_,v)=>v&&typeof v==='object'&&!Array.isArray(v)?Object.fromEntries(Object.entries(v).sort(([a],[b])=>a.localeCompare(b))):v)}
 function notice(text){message=text;let node=document.getElementById('cloud-status');if(!node){node=document.createElement('div');node.id='cloud-status';node.style.cssText='position:fixed;bottom:12px;right:12px;z-index:9999;background:#eef2e7;color:#264e3c;padding:8px 14px;border:1px solid #b8c7b0;border-radius:8px;max-width:90vw;font:12px/1.6 sans-serif';document.body.append(node)}node.textContent=text;}
 // Synchronous bootstrap happens before the legacy inline course reads localStorage.
@@ -7,7 +7,23 @@ function notice(text){message=text;let node=document.getElementById('cloud-statu
 try{const home=new XMLHttpRequest();home.open('GET','/',false);home.send();csrf=new DOMParser().parseFromString(home.responseText,'text/html').querySelector('meta[name=csrf]')?.content||'';
 for(const key of keys){const r=new XMLHttpRequest();r.open('GET','/api/state/'+key,false);r.send();if(r.status!==200)throw Error('cloud unavailable');const remote=JSON.parse(r.responseText);revisions[key]=remote.revision;const local=localStorage.getItem(key);if(remote.value){const cloud=JSON.stringify(remote.value);if(local&&stable(JSON.parse(local))!==stable(remote.value)){const useCloud=confirm('发现此浏览器与云端的学习记录不同。确定：加载云端；取消：保留本机，稍后同步。两份记录都会先保留本机备份。');original.call(localStorage,key+'-conflict-local',local);original.call(localStorage,key+'-conflict-cloud',cloud);if(useCloud)original.call(localStorage,key,cloud);else pending[key]=JSON.parse(local);}else original.call(localStorage,key,cloud);}else if(local)pending[key]=JSON.parse(local);}}
 catch(e){message='云端同步暂不可用，本地学习继续；请导出笔记备份。'}
-async function flush(key){if(busy[key]||!pending[key]||!csrf)return;busy[key]=true;const value=pending[key];delete pending[key];try{const r=await fetch('/api/state/'+key,{method:'PUT',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify({value,revision:revisions[key]||0})});if(!r.ok){pending[key]=value;throw Error(r.status===409?'另一设备更新了进度；已保留本机，刷新后选择记录。':'同步失败，记录仍在本机。')}revisions[key]=(await r.json()).revision;notice('学习进度已同步 · 本地副本保留')}catch(e){notice(e.message)}finally{busy[key]=false;if(pending[key]&&pending[key]!==value)setTimeout(()=>flush(key),500)}}
+function schedule(key,delay){clearTimeout(timers[key]);timers[key]=setTimeout(()=>flush(key),delay)}
+async function flush(key){
+if(busy[key]||blocked[key]||!pending[key]||!csrf)return;
+busy[key]=true;const value=pending[key];delete pending[key];let retry=500;
+try{
+const r=await fetch('/api/state/'+key,{method:'PUT',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify({value,revision:revisions[key]||0})});
+if(!r.ok){
+if(r.status===409||r.status===401||r.status===403)blocked[key]=true;
+throw Error(r.status===409?'另一设备更新了进度；已保留本机，刷新后选择记录。':blocked[key]?'登录已失效；本机记录已保留，请刷新后登录。':'同步失败，记录仍在本机，将自动重试。');
+}
+revisions[key]=(await r.json()).revision;notice('学习进度已同步 · 本地副本保留');
+}catch(e){
+// An older failed request must never replace a newer local edit.
+if(!pending[key])pending[key]=value;
+retry=5000;notice(e.message==='Failed to fetch'?'网络中断，本机记录已保留，将自动重试。':e.message);
+}finally{busy[key]=false;if(pending[key]&&!blocked[key])schedule(key,retry)}
+}
 Storage.prototype.setItem=function(key,value){original.call(this,key,value);if(this===localStorage&&keys.includes(key)){try{pending[key]=JSON.parse(value);clearTimeout(timers[key]);timers[key]=setTimeout(()=>flush(key),700)}catch(e){}}};
 document.addEventListener('DOMContentLoaded',()=>{notice(message||'私人课程 · 本地与云端同步');for(const key of Object.keys(pending))flush(key)});
 })();
