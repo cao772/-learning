@@ -4,6 +4,7 @@
   const root = () => document.getElementById('content');
   let mode = 'ranking';
   let categoryMode = 'all';
+  let keyword = '';
   let cached = null;
   const byId = id => document.getElementById(id);
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
@@ -52,7 +53,7 @@
         <p class="muted">${esc(r.category_reason || '分类待核验')}${(r.topic_tags||[]).length ? ' · 技术标签：'+(r.topic_tags||[]).map(esc).join(' / ') : ''}</p><div class="reason-line">${r.reasons.map(m=>`<span class="reason">${esc(m)}</span>`).join('')}</div>
         ${r.possible_project ? `<p class="project-hint">可能关联：${esc(r.possible_project)} <small>· 仅依据关键词提示，需自己验证</small></p>` : ''}
         <div class="actions"><button class="quiet" type="button" data-recommend-detail="${esc(x.id)}">精读 / 记录 / 收藏</button>
-          <button class="quiet" type="button" data-research-item="${esc(x.id)}">评估 / 列入计划</button><a href="${safeHref(x.url)}" target="_blank" rel="noopener noreferrer">看原文 ↗</a></div>
+          <button class="quiet" type="button" data-research-item="${esc(x.id)}">评估 / 列入计划</button><button class="quiet" type="button" data-correct-category="${esc(x.id)}">纠正分类</button><a href="${safeHref(x.url)}" target="_blank" rel="noopener noreferrer">看原文 ↗</a></div>
       </article>`; }).join('')}</div>`;
     const choices = (data.categories || []).filter(c => c.count > 0);
     if (categoryMode !== 'all') {
@@ -76,14 +77,16 @@
       [{key:'all',label:'全部分类',count:data.ranking.length},...cats].map(c =>
         '<button type="button" data-discovery-category="'+esc(c.key)+'" aria-pressed="'+(categoryMode===c.key)+'" class="'+
         (categoryMode===c.key?'':'quiet')+'">'+esc(c.label)+' <span>'+Number(c.count || 0)+'</span></button>'
-      ).join('')+'</div></section>';
+      ).join('')+'</div>'+
+      '<label class="category-search">筛选当前类别 <input id="discovery-search" type="search" placeholder="搜索标题、来源、摘要" value="'+esc(keyword)+'" aria-label="搜索兴趣发现内容"></label>'+
+      '<p class="muted" id="category-search-count" role="status"></p></section>';
   }
   function capturedCards(data) {
     if (!data.captures.length) return '<p class="empty">你从小红书或 GitHub 看到的新鲜东西，可以先保存在上面的私人清单中。</p>';
     return data.captures.map(x => `<article class="captured-card">
       <div class="meta"><span class="tag candidate">私人线索 · 未核验</span> <span class="tag reviewed">${esc(x.category_label || "待分类")}</span> <span>${esc(x.source)}</span> <span>${esc(x.added_at?.slice(0,10)||'')}</span></div>
       <h3>${esc(x.title)}</h3><p>${esc(x.note)}</p>
-      <div class="actions"><button class="quiet" type="button" data-research-item="${esc(x.id)}">做验证计划</button><a href="${safeHref(x.url)}" target="_blank" rel="noopener noreferrer">查看保存的原文 ↗</a></div></article>`).join('');
+      <div class="actions"><button class="quiet" type="button" data-research-item="${esc(x.id)}">做验证计划</button><button class="quiet" type="button" data-correct-category="${esc(x.id)}">纠正分类</button><a href="${safeHref(x.url)}" target="_blank" rel="noopener noreferrer">查看保存的原文 ↗</a></div></article>`).join('');
   }
   function sourceDirectory(data) {
     const grouped = new Map();
@@ -114,9 +117,74 @@
           mode==='connections' || mode==='plans' ? '<section id="research-board" class="discovery-panel"></section>' : sourceDirectory(data)}
        </div>`;
   }
+  function applySearch() {
+    if (mode !== 'ranking') return;
+    const main = root();
+    const query = keyword.trim().normalize('NFKC').toLocaleLowerCase();
+    if (!main || typeof main.querySelectorAll !== 'function') return;
+    const cards = [...main.querySelectorAll('.discovery-card')];
+    let shown = 0;
+    for (const card of cards) {
+      card.hidden = !!query && !card.textContent.normalize('NFKC').toLocaleLowerCase().includes(query);
+      if (!card.hidden) shown++;
+    }
+    for (const section of main.querySelectorAll('.discovery-category-section')) {
+      section.hidden = ![...section.querySelectorAll('.discovery-card')].some(card=>!card.hidden);
+    }
+    const output = byId('category-search-count');
+    if (output) output.textContent = query ?
+      '找到 '+shown+' 条匹配内容（仅检索当前已加载的结果）' :
+      '当前展示 '+shown+' 条内容';
+  }
+
+  async function correctCategory(id) {
+    if (!cached || !serverApi) return;
+    const record = cached.ranking.find(row=>String(row.item.id)===String(id)) ||
+      cached.captures.find(row=>String(row.id)===String(id));
+    if (!record) return;
+    const item = record.item || record;
+    const dlg = byId('category-dialog');
+    const target = byId('category-detail');
+    if (!dlg || !target) return;
+    const key = 'category:' + id;
+    const saved = await serverApi('/api/state/'+encodeURIComponent(key));
+    const initial = saved.value || {};
+    const selected = initial.category || 'auto';
+    const options = [{key:'auto',label:'自动判断'},...(cached.categories||[])];
+    target.innerHTML = '<h2>纠正内容分类</h2><p>'+esc(item.title||'')+'</p>'+
+      '<p class="muted">这里只更改你自己看到的主分类，不会改变原始来源、编辑核验结果或公开精选。</p>'+
+      '<form id="category-form"><label>主分类<select name="category">'+
+      options.map(o=>'<option value="'+esc(o.key)+'" '+(o.key===selected?'selected':'')+'>'+esc(o.label)+'</option>').join('')+
+      '</select></label><label>分类说明（可选，最多 200 字）'+
+      '<textarea name="note" maxlength="200" rows="2">'+esc(initial.note||'')+'</textarea></label>'+
+      '<div class="actions"><button type="submit">保存分类</button><button type="button" class="quiet" id="category-reset">恢复自动分类</button></div>'+
+      '<p class="muted" id="category-message" role="status"></p></form>';
+    dlg.showModal();
+    const save = async (category,note) => {
+      const message = byId('category-message');
+      try {
+        await serverApi('/api/state/'+encodeURIComponent(key),'PUT',{
+          revision:saved.revision,
+          value:{category,note}
+        });
+        dlg.close();
+        await refresh();
+      } catch(err) {
+        if(message) message.textContent=err.message || '保存未完成，请刷新后重试';
+      }
+    };
+    byId('category-form').onsubmit = async ev=>{
+      ev.preventDefault();
+      const form = ev.currentTarget;
+      await save(form.elements.category.value,form.elements.note.value.trim());
+    };
+    byId('category-reset').onclick = async()=>save('auto','');
+  }
+
   async function refresh() {
     cached = await serverApi('/api/discover');
     root().innerHTML = markup(cached);
+    if (mode === 'ranking' && keyword) applySearch();
     if (typeof window.renderResearchAddon === 'function')
       window.renderResearchAddon({data:cached, mode, api:serverApi});
     if (mode==='ranking') {
@@ -155,7 +223,7 @@
     await refresh();
   }
   document.addEventListener('click', e => {
-    const button = e.target.closest('[data-discover-mode], [data-recommend-detail], [data-discovery-category]');
+    const button = e.target.closest('[data-discover-mode], [data-recommend-detail], [data-discovery-category], [data-correct-category]');
     if (!button || !root()?.contains(button)) return;
     if (button.dataset.discoveryCategory && cached) {
       categoryMode = button.dataset.discoveryCategory;
@@ -163,11 +231,19 @@
     } else if (button.dataset.discoverMode) {
       mode=button.dataset.discoverMode;
       refresh().catch(err=>{root().textContent=err.message;});
+    } else if (button.dataset.correctCategory && cached) {
+      correctCategory(button.dataset.correctCategory).catch(err=>{root().textContent=err.message;});
     } else if (button.dataset.recommendDetail && cached) {
       const found=cached.ranking.find(r=>r.item.id===button.dataset.recommendDetail);
       if (found) Promise.resolve(openDetail(found.item)).catch(err=>{root().textContent=err.message;});
     }
   });
+  document.addEventListener('input',event => {
+    if (event.target?.id !== 'discovery-search') return;
+    keyword = event.target.value;
+    applySearch();
+  });
+  byId('category-close')?.addEventListener('click',()=>byId('category-dialog')?.close());
   window.renderDiscovery = show;
   window.refreshDiscovery = refresh;
 })();
