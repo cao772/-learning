@@ -12,6 +12,7 @@ from urllib.parse import urlsplit
 from flask import Flask, request, session, jsonify, redirect, render_template, send_file, abort
 from werkzeug.security import check_password_hash
 from hub.discovery import INTERESTS, CATALOG, DEFAULT_WEIGHTS, rank_items, canonical_link, capture_key, normalize_profile
+from hub.research import connect_sources, research_brief
 
 ROOT=Path(__file__).resolve().parent.parent
 COURSES={'llm':'llm-learning.html','lab':'new-knowledge.html'}
@@ -169,11 +170,20 @@ def create_app(config=None):
             captures = [{**value, 'id': key}
                         for key,value in stored.items() if key.startswith('capture:')]
         captures.sort(key=lambda x: x.get('added_at') or '', reverse=True)
+        ranked = rank_items(candidates, profile, limit=80)
+        captures = captures[:100]
+        guidance = {str(row['item']['id']): research_brief(row['item']) for row in ranked}
+        guidance.update({str(x['id']):research_brief(x) for x in captures})
         return jsonify(
             topics=[{'key':key,'label':value['label']} for key,value in INTERESTS.items()],
             profile=profile, profile_revision=profile_record.get('revision',0),
-            sources=CATALOG, ranking=rank_items(candidates,profile,limit=80),
-            captures=captures[:100], ranking_method='显式关键词、时间、核验与个人反馈的规则排序；没有调用模型，也没有查询 Github 星数'
+            sources=CATALOG, ranking=ranked, captures=captures,
+            connections=connect_sources(ranked,captures), research_guides=guidance,
+            research_records=[
+                {'key':key[len('research:'):],**value} for key,value in stored.items()
+                if key.startswith('research:') and isinstance(value,dict)
+            ],
+            ranking_method='显式关键词、时间、核验与个人反馈的规则排序；没有调用模型，也没有查询 Github 星数'
         )
 
     @app.post('/api/capture')
