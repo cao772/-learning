@@ -1,0 +1,65 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
+
+test('public filtering is progressive, scoped, and resettable', () => {
+  const callbacks = {};
+  const makeControl = id => ({
+    id, value: '', focus() { this.focused = true; },
+    addEventListener(type, callback) { callbacks[id + ':' + type] = callback; }
+  });
+  const search = makeControl('public-search');
+  const status = makeControl('public-status');
+  status.value = 'all';
+  const reset = makeControl('public-reset');
+  const count = {textContent: ''};
+  const review = {textContent: 'Harness 成本 研究', dataset: {kind: 'reviewed'}, hidden: false};
+  const candidate = {textContent: 'Docling 试用线索', dataset: {kind: 'candidate'}, hidden: false};
+  const reviewEmpty = {hidden: true}, candidateEmpty = {hidden: true};
+  const section = (entry, empty) => ({
+    querySelectorAll(selector) {
+      assert.equal(selector, '[data-public-item]');
+      return [entry];
+    },
+    querySelector(selector) {
+      assert.equal(selector, '.public-no-match');
+      return empty;
+    }
+  });
+  const elements = {
+    'public-search': search, 'public-status': status,
+    'public-reset': reset, 'public-count': count
+  };
+  const document = {
+    getElementById: id => elements[id],
+    querySelectorAll: selector => {
+      if (selector === '[data-public-item]') return [review, candidate];
+      if (selector === 'section[id="reviewed"], section[id="candidate"]') {
+        return [section(review, reviewEmpty), section(candidate, candidateEmpty)];
+      }
+      throw Error('Unexpected selector: ' + selector);
+    }
+  };
+  const script = fs.readFileSync(path.join(__dirname, '../hub/static/public-filter.js'), 'utf8');
+  vm.runInNewContext(script, {document}, {filename: 'public-filter.js'});
+  assert.equal(count.textContent, '当前显示 2 / 2 条内容');
+  search.value = 'Harness';
+  callbacks['public-search:input']();
+  assert.equal(review.hidden, false);
+  assert.equal(candidate.hidden, true);
+  assert.equal(candidateEmpty.hidden, false);
+  assert.equal(count.textContent, '当前显示 1 / 2 条内容');
+  search.value = '';
+  status.value = 'candidate';
+  callbacks['public-status:change']();
+  assert.equal(review.hidden, true);
+  assert.equal(candidate.hidden, false);
+  assert.equal(reviewEmpty.hidden, false);
+  callbacks['public-reset:click']();
+  assert.equal(search.value, '');
+  assert.equal(status.value, 'all');
+  assert.equal(search.focused, true);
+  assert.equal(count.textContent, '当前显示 2 / 2 条内容');
+});
