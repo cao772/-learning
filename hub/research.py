@@ -146,3 +146,62 @@ def research_brief(item):
         },
         "evidence_level": "待验证",
     }
+
+
+def interest_collections(ranking, max_groups=12):
+    """Cluster by *stated matching interests*, not by claimed semantic equivalence.
+
+    Mixed-source results may be useful for exploring a topic, but never
+    constitute corroborating or independent support for a factual assertion.
+    """
+    from hub.discovery import INTERESTS
+    buckets = {}
+    for record in ranking:
+        if not isinstance(record, dict) or not isinstance(record.get("item"), dict):
+            continue
+        item = record["item"]
+        for tag in record.get("match_keys", []):
+            if not isinstance(tag, str) or (tag not in INTERESTS and not tag.startswith("custom:")):
+                continue
+            bucket = buckets.setdefault(tag, [])
+            key = str(item.get("id", ""))
+            if key and all(str(other.get("id")) != key for other in bucket):
+                bucket.append(item)
+    groups = []
+    for tag, entries in buckets.items():
+        if len(entries) < 2:
+            continue
+        sources = {str(x.get("source") or "未知") for x in entries}
+        if len(sources) < 2:
+            continue
+        groups.append({
+            "tag": tag,
+            "label": INTERESTS[tag]["label"] if tag in INTERESTS else tag.removeprefix("custom:"),
+            "basis": "关键词命中同一兴趣，不代表事件、技术或结论相同",
+            "source_count": len(sources),
+            "members": [_provenance(item, "feed") for item in entries[:12]],
+        })
+    return sorted(groups, key=lambda x: (-x["source_count"], -len(x["members"]), x["label"]))[:max_groups]
+
+
+def suggested_research(ranking, recorded_ids, limit=8):
+    """Non-persistent learning prompts only; never mark tasks performed."""
+    choices = []
+    saved = set(recorded_ids)
+    for row in ranking:
+        item = row.get("item") or {}
+        identifier = str(item.get("id") or "")
+        if not identifier or identifier in saved:
+            continue
+        private = item.get("personal") or {}
+        if not private.get("saved") and private.get("feedback") not in ("值得深读", "已用上"):
+            continue
+        choices.append({
+            "id": identifier,
+            "title": item.get("title") or "",
+            "source": item.get("source") or "未知",
+            "url": item.get("url") or "",
+            "reason": "你已收藏" if private.get("saved") else "来自你明确标注的阅读反馈",
+            "status": "仅建议，尚未加入计划",
+        })
+    return choices[:limit]
