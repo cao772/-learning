@@ -1,0 +1,25 @@
+name: xunxu-cloud-sync
+services:
+  cloud-sync:
+    image: xunxu-cloud-sync:local
+    environment:
+      CLOUD_SSH_TARGET: ${CLOUD_SSH_TARGET:?Set approved SSH target}
+    volumes:
+      - ../AI信息整合:/upstream
+      - ../.private/cloud/yanhaoo_ed25519:/keys/identity:ro
+      - ../.private/cloud/known_hosts:/keys/known_hosts:ro
+      - cloud_sync_state:/state
+    restart: unless-stopped
+    read_only: true
+    tmpfs: /tmp
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import pathlib,json,time; s=json.loads(pathlib.Path('/state/status.json').read_text()); assert s['ok'] and time.time()-s['at']<600"]
+      interval: 60s
+      start_period: 120s
+    logging:
+      driver: json-file
+      options: {max-size: "2m", max-file: "2"}
+volumes:
+  cloud_sync_state:

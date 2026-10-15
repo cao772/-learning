@@ -74,3 +74,23 @@ docker compose up -d --wait
 - 两套课程分别执行原构建脚本，`git diff --exit-code -- llm-learning.html new-knowledge.html` 应无差异。
 - `/healthz` 仅返回存活状态；`/api/status` 需要登录。Docker 自动重启进程崩溃，健康检查本身不会自动修复所有“进程活着但不健康”的故障。
 - 本机低负载内存测量只用于容量初判，不能替代云端压测。2 核 4GB 是待购候选；腾讯云产品/报价页此次工具读取失败，未核实地域、续费和流量价格，不能给出已确认报价或代购。
+
+## 2026-10-15 云端私密试运行（取代上面的待购状态）
+
+用户已购买北京轻量服务器：99 元一年、2 核 2GB、50GB SSD、4Mbps、300GB/月，Ubuntu 24.04 x86_64。已经授权并验证专用 SSH 密钥登录；服务器上运行 f299909-amd64 镜像，hub 和每日备份健康。只监听 127.0.0.1:8788，未启动 Caddy、未改 DNS，公网域名与 HTTPS 仍等待备案条件。
+
+本机双击 `打开云端学习站.command`，通过 SSH 隧道打开 <http://127.0.0.1:18788>。云端口令在 `.private/cloud/production-login.txt`，与本地 8788 口令不同。隧道关闭或网络中断后再次双击即可重连。此入口只在本机有效；手机访问需后续域名上线。
+
+云端启动使用 `deploy/start-preflight.sh`，只启动 hub 与 backup。正式域名上线时必须移除 preflight override，恢复 Secure cookie 并启用生产 Caddy；不要将试运行 HTTP 端口绑定到公网。
+
+本地独立 `xunxu-cloud-sync` Docker 项目每分钟复用原收件箱导出，通过已核验主机指纹的 SSH 发送，并回取显式反馈。它不重复采集，不读取网页私人笔记。原本地采集器和本地站点继续工作。启动/检查：
+
+```sh
+docker build -f deploy/Dockerfile.sync-ssh -t xunxu-cloud-sync:local .
+docker compose --env-file .private/cloud/sync.env -f deploy/compose.cloud-sync.yaml up -d --wait
+docker compose --env-file .private/cloud/sync.env -f deploy/compose.cloud-sync.yaml logs --tail=10
+```
+
+同步容器只挂载专用私钥及已验证 known_hosts，不挂载 Docker socket 或整个私密目录。停止用同一 Compose 命令的 `stop`。Mac 睡眠、Docker 停止、网络中断期间不会同步；恢复后继续。服务器本身持续服务。云端与本地站点笔记是独立数据库，不自动互相覆盖。
+
+云端每日备份保留最近 14 份，已演练独立恢复。本次另将一致性快照下载到本机 `.private/cloud/cloud-acceptance.sqlite` 并检查完整性；这是一次异地副本，尚未建立自动异地备份和外部告警。服务器 Docker 自动重启已启用。主机口令登录加固、系统更新维护窗口、ICP 提交、正式 DNS/TLS 和公网验收仍需继续完成；不能把私密试运行称为域名正式上线。

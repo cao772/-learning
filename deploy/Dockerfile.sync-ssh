@@ -1,0 +1,5 @@
+FROM xunxu-hub:local
+USER root
+RUN sed -i 's|http://deb.debian.org|https://mirrors.tuna.tsinghua.edu.cn|g' /etc/apt/sources.list.d/debian.sources && apt-get update && apt-get install -y --no-install-recommends openssh-client && rm -rf /var/lib/apt/lists/*
+COPY hub/cloud_sync.py /app/hub/cloud_sync.py
+ENTRYPOINT ["python", "-m", "hub.cloud_sync"]
