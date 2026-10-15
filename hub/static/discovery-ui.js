@@ -3,6 +3,7 @@
   'use strict';
   const root = () => document.getElementById('content');
   let mode = 'ranking';
+  let categoryMode = 'all';
   let cached = null;
   const byId = id => document.getElementById(id);
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
@@ -42,17 +43,40 @@
   }
   function rankedCards(data) {
     if (!data.ranking.length) return '<p class="empty">还没有可匹配的内容。可以先从现有来源收集几条线索。</p>';
-    return `<div class="discovery-cards">${data.ranking.map((r,i) => {
+    const renderItems = rows => `<div class="discovery-cards">${rows.map((r,i) => {
       const x = r.item, reviewed = x.verification_status === 'reviewed';
       return `<article class="discovery-card">
         <div class="meta"><strong>#${i+1}</strong><span class="tag ${reviewed ? 'reviewed' : 'candidate'}">${reviewed ? '编辑核验' : '待核验'}</span>
-          <span>${esc(x.source||'来源未知')}</span><span>${esc(x.published_at?.slice(0,10) || '发布日期未知')}</span></div>
+          <span class="tag reviewed">${esc(r.category_label || '待分类')}</span><span>${esc(x.source||'来源未知')}</span><span>${esc(x.published_at?.slice(0,10) || '发布日期未知')}</span></div>
         <h2>${esc(x.title)}</h2><p>${esc(x.summary || '当前只有标题/元信息，尚无可核验的正文摘要。')}</p>
-        <div class="reason-line">${r.reasons.map(m=>`<span class="reason">${esc(m)}</span>`).join('')}</div>
+        <p class="muted">${esc(r.category_reason || '分类待核验')}${(r.topic_tags||[]).length ? ' · 技术标签：'+(r.topic_tags||[]).map(esc).join(' / ') : ''}</p><div class="reason-line">${r.reasons.map(m=>`<span class="reason">${esc(m)}</span>`).join('')}</div>
         ${r.possible_project ? `<p class="project-hint">可能关联：${esc(r.possible_project)} <small>· 仅依据关键词提示，需自己验证</small></p>` : ''}
         <div class="actions"><button class="quiet" type="button" data-recommend-detail="${esc(x.id)}">精读 / 记录 / 收藏</button>
           <button class="quiet" type="button" data-research-item="${esc(x.id)}">评估 / 列入计划</button><a href="${safeHref(x.url)}" target="_blank" rel="noopener noreferrer">看原文 ↗</a></div>
       </article>`; }).join('')}</div>`;
+    const choices = (data.categories || []).filter(c => c.count > 0);
+    if (categoryMode !== 'all') {
+      const subset = data.ranking.filter(r => (r.category || 'other') === categoryMode);
+      return subset.length ? renderItems(subset) : '<p class="empty">这个分类暂无内容。试试其他类别，或先补充有效来源。</p>';
+    }
+    if (!choices.length) return renderItems(data.ranking);
+    return choices.map(category => {
+      const subset = data.ranking.filter(r => (r.category || 'other') === category.key);
+      return '<section class="discovery-category-section"><h3>'+
+          esc(category.label)+' · '+subset.length+' 条</h3><p class="muted">'+
+          esc(category.description || '')+'</p>'+renderItems(subset)+'</section>';
+    }).join('');
+  }
+  function categoryTabs(data) {
+    const cats = data.categories || [];
+    if (!cats.length) return '';
+    return '<section class="category-navigation" aria-label="内容主分类"><h2>分门别类发现</h2>'+
+      '<p class="muted">Agent、论文、GitHub 代码、产品和教程分开呈现。每条只归入一个主分类，技术标签可交叉；分类是规则初判，不是人工核验结论。</p>'+
+      '<div class="category-pills" role="group" aria-label="选择内容类别">'+
+      [{key:'all',label:'全部分类',count:data.ranking.length},...cats].map(c =>
+        '<button type="button" data-discovery-category="'+esc(c.key)+'" aria-pressed="'+(categoryMode===c.key)+'" class="'+
+        (categoryMode===c.key?'':'quiet')+'">'+esc(c.label)+' <span>'+Number(c.count || 0)+'</span></button>'
+      ).join('')+'</div></section>';
   }
   function capturedCards(data) {
     if (!data.captures.length) return '<p class="empty">你从小红书或 GitHub 看到的新鲜东西，可以先保存在上面的私人清单中。</p>';
@@ -85,7 +109,7 @@
          <button type="button" class="${mode==='connections'?'':'quiet'}" data-discover-mode="connections">跨来源线索</button>
          <button type="button" class="${mode==='plans'?'':'quiet'}" data-discover-mode="plans">验证与学习计划</button>
          <button type="button" class="${mode==='sources'?'':'quiet'}" data-discover-mode="sources">信息源地图</button></div>
-       ${mode==='ranking' ? topicSummary(data) + `<h2>按我的兴趣排列 · ${data.ranking.length} 条</h2>`+rankedCards(data) :
+       ${mode==='ranking' ? categoryTabs(data) + rankedCards(data) + topicSummary(data) :
           mode==='saved' ? captureForm + '<h2>我的私人待核验清单</h2>'+capturedCards(data) :
           mode==='connections' || mode==='plans' ? '<section id="research-board" class="discovery-panel"></section>' : sourceDirectory(data)}
        </div>`;
@@ -131,9 +155,12 @@
     await refresh();
   }
   document.addEventListener('click', e => {
-    const button = e.target.closest('[data-discover-mode], [data-recommend-detail]');
+    const button = e.target.closest('[data-discover-mode], [data-recommend-detail], [data-discovery-category]');
     if (!button || !root()?.contains(button)) return;
-    if (button.dataset.discoverMode) {
+    if (button.dataset.discoveryCategory && cached) {
+      categoryMode = button.dataset.discoveryCategory;
+      refresh().catch(err => {root().textContent=err.message;});
+    } else if (button.dataset.discoverMode) {
       mode=button.dataset.discoverMode;
       refresh().catch(err=>{root().textContent=err.message;});
     } else if (button.dataset.recommendDetail && cached) {
