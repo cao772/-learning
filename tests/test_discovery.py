@@ -105,6 +105,12 @@ class DiscoveryTests(unittest.TestCase):
         bad = ranked(None)
         self.assertIn('历史反馈：证据不好',next(x for x in bad if x['item']['id']=='repo-tool-1')['reasons'])
 
+    def test_same_relevance_sorts_newer_publications_first(self):
+        older={**self.candidate,'id':'older','title':'无匹配条目','published_at':'2026-05-01','url':'https://example.org/older'}
+        newer={**older,'id':'newer','published_at':'2026-06-01','url':'https://example.org/newer'}
+        ranked=rank_items([older,newer],today=dt.date(2026,10,15))
+        self.assertEqual([r['item']['id'] for r in ranked],['newer','older'])
+
     def test_actual_profile_revision_and_persistence(self):
         ingest(self.db,{'schema':1,'items':[self.candidate,self.research]})
         self.login()
