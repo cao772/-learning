@@ -20,6 +20,7 @@
 - 操作系统防火墙：核对实际 SSH 端口和备用连接后，以 `sudo ufw allow <SSH端口>/tcp` + `sudo ufw default deny incoming` 为起点；**任何 `sudo ufw enable` 前必须验证可恢复的远程访问、已添加 SSH 允许规则**。如 UFW 规则由厂商/其他程序管理，禁止盲目重置。
 - SSH：先验证非 root 密钥账户和 `sudo`，再在独立 SSH 连接中测试。最后才考虑禁用口令、root 远程登录；修改前运行 `sudo sshd -t`，更新后复测两个会话。
 - 服务器保持试运行的回环映射 + SSH 隧道；个人笔记与管理 API 的匿名拒绝结果必须持续为 401/302。
+- 登陆限流按来源 IP 计数。正式 Caddy 的单层代理模式显式设置 `HUB_TRUST_PROXY=1`，SSH 隧道直连预览覆盖为 `0`；如果引入多级 CDN/代理，必须重新审查可信代理跳数与来源 IP 伪造问题。
 - 更新先执行 `apt-get -s upgrade` 模拟；需要重启时安排维护窗口。**不得直接升级 Docker 主版本或覆写业务镜像**。
 - 不要把 SSH 密钥、令牌、数据库、用户数据、截图放进公开 GitHub PR 或 CI logs。
 
