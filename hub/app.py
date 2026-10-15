@@ -188,6 +188,8 @@ def create_app(config=None):
         for row in ranked:
             row.update(classify_item(row['item']))
         captures = captures[:100]
+        for entry in captures:
+            entry.update(classify_item(entry))
         guidance = {str(row['item']['id']): research_brief(row['item']) for row in ranked}
         guidance.update({str(x['id']):research_brief(x) for x in captures})
         return jsonify(
