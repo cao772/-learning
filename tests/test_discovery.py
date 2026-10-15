@@ -121,6 +121,17 @@ class DiscoveryTests(unittest.TestCase):
           headers={'X-CSRF-Token':self.csrf},json={'revision':0,'value':{'weights':{}}}).status_code,409)
         self.assertEqual(second['profile']['weights']['science'],5)
 
+    def test_custom_hobbies_can_be_added_without_inventing_model_quality(self):
+        profile=normalize_profile({'weights':{'agent':0,'open_source':0},
+                                   'custom_interests':['天体物理','天体物理','蛋白质结构','','x'*100]})
+        self.assertEqual(profile['custom_interests'],['天体物理','蛋白质结构'])
+        custom={**self.candidate,'id':'new-hobby','title':'天体物理基础教程',
+                'url':'https://example.org/astro','published_at':None}
+        scored=rank_items([custom,self.candidate],profile,today=dt.date(2026,10,15))
+        self.assertEqual(scored[0]['item']['id'],'new-hobby')
+        self.assertIn('新增兴趣：天体物理',scored[0]['reasons'])
+        self.assertEqual(scored[0]['item']['verification_status'],'candidate')
+
     def test_weights_are_bounded_and_unverified_cannot_be_auto_promoted(self):
         p=normalize_profile({'weights':{'agent':100,'open_source':True,'science':0}})
         self.assertEqual(p['weights']['agent'],5)
