@@ -76,13 +76,35 @@ async function waitForServer(proc) {
     await page.getByText('这个分类暂无内容。').waitFor();
     await page.locator('button[data-discovery-category="all"]').click();
     await page.waitForFunction(() => document.querySelectorAll('.discovery-card').length===2);
+    // Browser-only category search should never send the query to public pages.
+    await page.locator('#discovery-search').fill('RNA');
+    await page.waitForFunction(() => document.querySelectorAll('.discovery-card:not([hidden])').length===1);
+    await page.locator('#discovery-search').fill('');
+    await page.waitForFunction(() => document.querySelectorAll('.discovery-card:not([hidden])').length===2);
+    // Correct an arXiv paper to Agent in the owner's view without editing feed data.
+    await page.locator('[data-correct-category="browser-candidate-rna"]').click();
+    await page.locator('#category-dialog[open]').waitFor();
+    await page.locator('#category-form select[name="category"]').selectOption('agent');
+    await page.locator('#category-form textarea[name="note"]').fill('人工检查后调整展示类别');
+    await page.locator('#category-form button[type="submit"]').click();
+    await page.locator('#category-dialog').waitFor({state:'hidden'});
+    await page.locator('button[data-discovery-category="agent"]').click();
+    await page.waitForFunction(() => document.querySelectorAll('.discovery-card').length===2);
+    await page.locator('[data-correct-category="browser-candidate-rna"]').click();
+    await page.locator('#category-form select[name="category"]').waitFor();
+    assert.equal(await page.locator('#category-form select[name="category"]').inputValue(),'agent');
+    await page.locator('#category-reset').click();
+    await page.locator('#category-dialog').waitFor({state:'hidden'});
+    await page.locator('button[data-discovery-category="paper"]').click();
+    await page.waitForFunction(() => document.querySelectorAll('.discovery-card').length===1);
+    await page.locator('button[data-discovery-category="all"]').click();
     await page.screenshot({path:path.join(evidence,'02-private-discovery.png'),fullPage:true});
 
     await page.locator('button[data-discover-mode="saved"]').click();
     await page.locator('input[name="url"]').fill('https://github.com/example/repro-project?utm_source=xhs');
     await page.locator('input[name="title"]').fill('通过小红书发现的 GitHub 工具');
     await page.locator('select[name="source"]').selectOption({label:'小红书'});
-    await page.locator('textarea[name="note"]').fill('先核实许可证、可部署性和学习价值');
+    await page.locator('#capture-form textarea[name="note"]').fill('先核实许可证、可部署性和学习价值');
     await page.locator('#capture-form button[type="submit"]').click();
     await page.getByRole('heading',{name:'通过小红书发现的 GitHub 工具'}).waitFor();
     await page.locator('[data-research-item]').first().click();

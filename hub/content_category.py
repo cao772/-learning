@@ -99,3 +99,26 @@ def category_overview(ranking):
         key=record.get("category","other")
         counts[key if key in counts else "other"]+=1
     return [{**entry,"count":counts[entry["key"]]} for entry in CATEGORIES]
+
+
+def apply_owner_category(item, state=None):
+    """Resolve a private owner's explicit classification without changing feed facts.
+
+    The override is stored only in personal state; it MUST NOT change the
+    item's editorial verification status or publish a private review.
+    """
+    result=classify_item(item)
+    override=state if isinstance(state,dict) else {}
+    category=override.get("category")
+    if category in LABELS:
+        result.update(
+            category=category,
+            category_label=LABELS[category],
+            category_reason="站主手动归类，非内容事实核验",
+            category_override=True,
+            category_note=override.get("note","") if isinstance(override.get("note",""),str) else ""
+        )
+    else:
+        result.update(category_override=False,category_note="")
+    result["category_revision"]=override.get("revision",0) if type(override.get("revision",0)) is int else 0
+    return result
