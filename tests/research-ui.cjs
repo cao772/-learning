@@ -26,6 +26,10 @@ test('private research tabs escape source titles and preserve evidence limits', 
         {id:'b',title:'转载',url:'https://example.org/article',source:'手动收集',origin:'private_capture'}]}],
       similar_title:[]
     },
+    topic_groups:[{label:'Agent 工具',source_count:2,basis:'关键词共享，不代表结论一致',members:[
+      {id:'a',url:'https://example.org/a',title:'Agent 工具研究',source:'BestBlogs'},
+      {id:'b',url:'https://example.org/b',title:'Agent 项目',source:'AIHOT'}]}],
+    research_suggestions:[{id:'b',title:'需要实测的工具',reason:'你已收藏',status:'仅建议，尚未加入计划'}],
     research_records:[{key:'a',title:x,url:'https://github.com/a/b',decision:'待复现',test_status:'未运行',
       project:'<script>private</script>',question:'复现基线'}],
     ranking:[],captures:[]
@@ -40,5 +44,10 @@ test('private research tabs escape source titles and preserve evidence limits', 
   assert.match(board.innerHTML,/未运行/);
   assert.match(board.innerHTML,/&lt;script&gt;private/);
   assert.doesNotMatch(board.innerHTML,/<script>private/);
+  assert.match(board.innerHTML,/需要实测的工具/);
+  assert.match(board.innerHTML,/仅建议，尚未加入计划/);
+  sandbox.window.renderResearchAddon({data,mode:'connections',api:async()=>({})});
+  assert.match(board.innerHTML,/跨来源兴趣专题/);
+  assert.match(board.innerHTML,/关键词共享，不代表结论一致/);
   assert.equal(typeof handlers.click,'function');
 });
