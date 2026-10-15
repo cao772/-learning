@@ -18,5 +18,5 @@ jobs:
       - run: node --check hub/static/hub.js && node --check hub/static/course-sync.js && node --check hub/static/public-filter.js
       - run: node --test tests/course-sync.cjs
       - run: node --test tests/public-filter.cjs
-      - run: bash -n deploy/host-security-audit.sh deploy/start-preflight.sh deploy/start-production.sh
+      - run: bash -n deploy/host-security-audit.sh deploy/start-preflight.sh deploy/start-production.sh deploy/download-encrypted-backup.sh
       - run: docker build -t xunxu-hub:ci .
