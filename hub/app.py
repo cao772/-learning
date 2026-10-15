@@ -16,6 +16,7 @@ from hub.discovery import INTERESTS, CATALOG, DEFAULT_WEIGHTS, rank_items, canon
 from hub.research import connect_sources, research_brief, interest_collections, suggested_research
 from hub.content_category import classify_item, apply_owner_category, category_overview, LABELS as CATEGORY_LABELS
 from hub.translation import original_parts, source_fingerprint, translate_deepl, TranslationError
+from hub.recommendation import balance_recommendations
 
 ROOT=Path(__file__).resolve().parent.parent
 COURSES={'llm':'llm-learning.html','lab':'new-knowledge.html'}
@@ -185,10 +186,14 @@ def create_app(config=None):
             captures = [{**value, 'id': key}
                         for key,value in stored.items() if key.startswith('capture:')]
         captures.sort(key=lambda x: x.get('added_at') or '', reverse=True)
-        ranked = rank_items(candidates, profile, limit=80)
+        ranked = rank_items(candidates, profile, limit=300)
         # Category presentation is independent of interest preference weights.
         for row in ranked:
             row.update(apply_owner_category(row['item'],stored.get('category:'+str(row['item']['id']))))
+        study_records={key[len('research:'):]:value for key,value in stored.items()
+                       if key.startswith('research:') and isinstance(value,dict)}
+        balanced=balance_recommendations(ranked,study_records,limit=80)
+        ranked=balanced['ranking']
         captures = captures[:100]
         for entry in captures:
             entry.update(apply_owner_category(entry,stored.get('category:'+str(entry['id']))))
@@ -197,7 +202,7 @@ def create_app(config=None):
         return jsonify(
             topics=[{'key':key,'label':value['label']} for key,value in INTERESTS.items()],
             profile=profile, profile_revision=profile_record.get('revision',0),
-            sources=CATALOG, ranking=ranked, categories=category_overview(ranked), captures=captures,
+            sources=CATALOG, ranking=ranked, recommendation=balanced['meta'], categories=category_overview(ranked), captures=captures,
             connections=connect_sources(ranked,captures), topic_groups=interest_collections(ranked),
             research_suggestions=suggested_research(
                 ranked, [key[len('research:'):] for key in stored if key.startswith('research:')]),
@@ -206,7 +211,7 @@ def create_app(config=None):
                 {'key':key[len('research:'):],**value} for key,value in stored.items()
                 if key.startswith('research:') and isinstance(value,dict)
             ],
-            ranking_method='显式关键词、时间、核验与个人反馈的规则排序；没有调用模型，也没有查询 Github 星数'
+            ranking_method='显式关键词、时间、核验、收藏与研究状态；前排来源/类别柔性分散；没有调用模型，也没有查询 Github 星数'
         )
 
     @app.route('/api/translation/<path:item_id>',methods=['GET','POST'])
@@ -239,10 +244,13 @@ def create_app(config=None):
             payload=request.get_json(silent=True)
             if not isinstance(payload,dict):abort(400)
             action=payload.get('mode')
-            if action not in ('manual','automatic') or set(payload)-({'mode','title_zh','summary_zh'} if action=='manual' else {'mode'}):
+            if action not in ('manual','automatic') or set(payload)-({'mode','title_zh','summary_zh','revision'} if action=='manual' else {'mode'}):
                 abort(400)
             if action=='automatic' and cached:
                 return jsonify(translation=cached,revision=revision,cached=True)
+            if action=='manual' and (type(payload.get('revision')) is not int
+                                      or payload['revision']!=revision):
+                return jsonify(error='译文已被其他设备更新，请刷新后重试',revision=revision),409
             if action=='automatic':
                 if not app.config['TRANSLATE_KEY']:
                     return jsonify(error='尚未配置自动翻译服务，可手工录入译文'),503
@@ -281,9 +289,8 @@ def create_app(config=None):
             if source_fingerprint(a,b)!=digest:return jsonify(error='原文已更新，请刷新后重试'),409
             old=c.execute('SELECT revision FROM personal WHERE id=?',(key,)).fetchone()
             revision=old['revision'] if old else 0
-            if action=='manual' and payload.get('mode')=='manual':
-                # Explicit edit overwrites only the owner's previous translation.
-                pass
+            if action=='manual' and revision!=payload['revision']:
+                return jsonify(error='译文已被其他设备更新，请刷新后重试',revision=revision),409
             c.execute('INSERT INTO personal VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET body=excluded.body,revision=excluded.revision',
                       (key,json.dumps(result,ensure_ascii=False),revision+1))
         return jsonify(translation=result,revision=revision+1,cached=False)
