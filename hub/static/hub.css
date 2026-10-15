@@ -26,3 +26,17 @@
 .discovery-category-section>h3{border-bottom:1px solid var(--line);font-size:21px;margin:0;padding:0 0 12px}
 .discovery-category-section>.muted{margin:10px 0 0}
 @media(max-width:760px){.category-navigation{padding:16px}.category-pills button{padding:7px 10px;font-size:12px}}
+
+
+/* Private category correction and local discovery search. */
+.category-search{display:grid;gap:5px;font-size:12px;margin:17px 0 6px;color:var(--muted)}
+.category-search input{width:100%;max-width:520px;background:var(--white)}
+#category-dialog{width:min(610px,94vw)}
+#category-dialog #category-detail>p{overflow-wrap:anywhere}
+#category-form{display:grid;gap:14px;margin-top:16px}
+#category-form label{display:grid;gap:6px;font-size:13px}
+#category-form select,#category-form textarea{max-width:100%;width:100%}
+#category-form .actions{justify-content:flex-start}
+.discovery-card .tag.reviewed{white-space:normal}
+.discovery-category-section[hidden]{display:none}
+@media(max-width:760px){.category-search input{width:100%}#category-dialog{padding:20px}#category-form .actions button{flex:1 1 100%}}
