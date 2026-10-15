@@ -60,6 +60,9 @@ class DiscoveryTests(unittest.TestCase):
         self.assertTrue(all('access' in source for source in data['sources']))
         self.assertIn('没有调用模型',data['ranking_method'])
         self.assertIn('categories',data)
+        self.assertIn('recommendation',data)
+        self.assertTrue(data['recommendation']['not_quality_score'])
+        self.assertEqual(data['recommendation']['model_calls'],0)
         self.assertTrue(any(c['key']=='paper' for c in data['categories']))
         self.assertNotIn('stars',str(data))
 
