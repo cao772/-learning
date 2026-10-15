@@ -80,7 +80,7 @@ async function waitForServer(proc) {
     await page.locator('select[name="test_status"]').selectOption('未运行');
     await page.locator('textarea[name="question"]').fill('是否能在隔离环境部署并用于 Agent 项目？');
     await page.locator('#research-form button[type="submit"]').click();
-    await page.locator('#research-dialog:not([open])').waitFor();
+    await page.locator('#research-dialog').waitFor({state:'hidden'});
     await page.locator('button[data-discover-mode="plans"]').click();
     await page.getByRole('heading',{name:'我的学习与项目验证计划'}).waitFor();
     await page.getByRole('heading',{name:'通过小红书发现的 GitHub 工具'}).waitFor();
