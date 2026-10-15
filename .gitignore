@@ -7,3 +7,8 @@ node_modules/
 *.log
 __pycache__/
 AI信息整合/
+.venv/
+.private/
+*.sqlite*
+backups/
+!.env.example

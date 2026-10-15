@@ -38,3 +38,13 @@ node scripts/build-new-knowledge.cjs
 ## 验证
 
 构建脚本检查课程内容结构与来源等约束。交付前已进行 Chromium 桌面与窄屏页面、导航、实验、自测、笔记和导出检查；后续修订按受影响范围补验。浏览器自动化使用本地 HTTP，未据此保证所有浏览器在 `file:` 下的存储行为。具体历史检查范围见两套课程的使用说明。
+
+## 私人情报与学习门户（开发分支）
+
+新增 `hub/` 在原课程外提供登录、候选/编辑精选、收藏、笔记、深入任务与学习进度同步。原有离线 HTML 不改，公开仓库不包含个人数据。
+
+本机运行 `scripts/hub-docker.sh`，访问 <http://127.0.0.1:8788>；口令保存在 `.private/login.txt`。存在现有 `AI信息整合` 目录时，Docker 同步服务复用其中采集器，每日采集、分钟级同步编辑成果。没有上游目录时启动空站，使用鉴权入站接口。
+
+[数据契约](docs/hot-feed-contract.md) · [运行、迁移、部署与恢复](docs/hub-operations.md) · [本次验收](docs/hub-acceptance.md)
+
+云端 Docker/Caddy 包已准备，但 `yanhaoo.com` 的服务器、授权、DNS、真实 TLS 与适用备案尚待完成；本地验收不代表已公开上线。

@@ -1,0 +1,8 @@
+*
+!Dockerfile
+!requirements.txt
+!hub/
+!hub/**
+!llm-learning.html
+!new-knowledge.html
+**/__pycache__
