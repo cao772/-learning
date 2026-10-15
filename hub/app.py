@@ -33,6 +33,8 @@ def initialize(path):
         CREATE TABLE IF NOT EXISTS sessions(id TEXT PRIMARY KEY, expires REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS metadata(key TEXT PRIMARY KEY, value TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS attempts(ip TEXT NOT NULL, at REAL NOT NULL);
+        CREATE INDEX IF NOT EXISTS idx_attempts_ip_at ON attempts(ip, at);
+        CREATE INDEX IF NOT EXISTS idx_batches_at ON batches(at DESC);
         PRAGMA user_version=1;
         ''')
     os.chmod(path,0o600)
