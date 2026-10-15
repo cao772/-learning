@@ -23,6 +23,7 @@
       const data=await request(path);
       const source=data.source||{};
       const stored=data.translation||{};
+      let currentRevision=data.revision||0;
       panel.innerHTML='<h2>中英双语阅读</h2><p class="muted">仅处理已收集的标题和摘要，不抓取原文全文。机器译文可能误译术语，请核对原文。</p>'+
         '<div class="bilingual-columns"><section><h3>原始内容</h3><h4>'+esc(source.title||'')+'</h4>'+
         '<p class="translation-source">'+esc(source.summary||'原记录只有标题')+'</p><p><a href="'+safeUrl(source.url)+'" target="_blank" rel="noopener noreferrer">原文链接 ↗</a></p></section>'+
@@ -45,9 +46,9 @@
         notice.textContent='正在保存私人译文…';
         try {
           const result=await request(path,'POST',{
-            mode:'manual',title_zh:form.elements.title_zh.value,
+            mode:'manual',revision:currentRevision,title_zh:form.elements.title_zh.value,
             summary_zh:form.elements.summary_zh.value});
-          update(result.translation);
+          update(result.translation);currentRevision=result.revision;
           notice.textContent='已保存到私人数据库，原文和编辑核验记录未改变。';
         }catch(err){notice.textContent=err.message;}
       };
@@ -57,7 +58,7 @@
         button.disabled=true;notice.textContent='正在发送当前标题与摘要进行按需翻译…';
         try {
           const result=await request(path,'POST',{mode:'automatic'});
-          update(result.translation);
+          update(result.translation);currentRevision=result.revision;
           notice.textContent=result.cached?'已有缓存，未重复请求翻译服务。':'已获得机器译文；请核对技术术语和准确性。';
         }catch(err){notice.textContent=err.message;}
         finally{button.disabled=false;}
