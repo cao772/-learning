@@ -34,6 +34,8 @@
       <form id="interest-form"><div class="interest-grid">${data.topics.map(t =>
        `<label>${esc(t.label)} <select data-weight="${esc(t.key)}" aria-label="${esc(t.label)} 权重">${[0,1,2,3,4,5].map(v =>
           `<option value="${v}" ${weights[t.key] === v ? 'selected' : ''}>${v}</option>`).join('')}</select></label>`).join('')}</div>
+       <label class="interest-extra">新的探索兴趣（用逗号隔开，最多 12 个）
+         <input id="custom-interest-input" type="text" maxlength="360" value="${esc((data.profile.custom_interests||[]).join('、'))}" placeholder="例如：天体物理、蛋白质结构、编程语言"></label>
        <button type="submit" class="quiet">保存偏好并重新排序</button></form>
        <p id="profile-message" role="status" class="muted"></p>
     </section>`;
@@ -97,7 +99,8 @@
         const message = byId('profile-message');
         try {
           await serverApi('/api/state/profile%3Ainterests','PUT',{
-            revision:cached.profile_revision,value:{weights}
+            revision:cached.profile_revision,value:{weights,
+              custom_interests:byId('custom-interest-input').value.split(/[,，、\\n]+/).map(s=>s.trim()).filter(Boolean).slice(0,12)}
           });
           await refresh();
         } catch(err) { message.textContent = err.message; }
