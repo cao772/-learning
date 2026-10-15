@@ -13,3 +13,16 @@
 @media(max-width:760px){.source-grid,.interest-grid{grid-template-columns:1fr}.discovery-panel{padding:18px}.discovery-intro h2{font-size:23px}.discovery-tabs button{font-size:12px}}
 
 .interest-extra{display:grid;gap:6px;margin:13px 0 18px;font-size:13px}.interest-extra input{width:100%;max-width:100%}
+
+
+/* Primary browsing categories are exclusive, while technical tags may overlap. */
+.category-navigation{margin:24px 0 28px;padding:20px 22px;background:var(--white);border:1px solid var(--line);border-radius:12px}
+.category-navigation h2{font-size:21px;margin:0 0 6px}
+.category-pills{display:flex;flex-wrap:wrap;gap:8px;margin:17px 0 2px}
+.category-pills button{padding:8px 12px;border-radius:24px;font-size:13px}
+.category-pills button span{font-size:11px;opacity:.75;margin-left:6px}
+.category-pills [aria-pressed="true"]{background:var(--green);color:white}
+.discovery-category-section{margin:28px 0 40px}
+.discovery-category-section>h3{border-bottom:1px solid var(--line);font-size:21px;margin:0;padding:0 0 12px}
+.discovery-category-section>.muted{margin:10px 0 0}
+@media(max-width:760px){.category-navigation{padding:16px}.category-pills button{padding:7px 10px;font-size:12px}}
