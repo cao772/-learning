@@ -11,6 +11,7 @@ import time
 from urllib.parse import urlsplit
 from flask import Flask, request, session, jsonify, redirect, render_template, send_file, abort
 from werkzeug.security import check_password_hash
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 ROOT=Path(__file__).resolve().parent.parent
 COURSES={'llm':'llm-learning.html','lab':'new-knowledge.html'}
@@ -76,8 +77,12 @@ def ingest(path,payload):
 
 def create_app(config=None):
     app=Flask(__name__)
-    app.config.update(PUBLIC=os.environ.get('HUB_PUBLIC','0')=='1',SECRET_KEY=os.environ.get('HUB_SECRET'),DB=os.environ.get('HUB_DB',str(ROOT/'.private/hub.sqlite')),PASSWORD_HASH=os.environ.get('HUB_PASSWORD_HASH'),INGEST_TOKEN=os.environ.get('HUB_INGEST_TOKEN'),MAX_CONTENT_LENGTH=2*1024*1024,SESSION_COOKIE_HTTPONLY=True,SESSION_COOKIE_SAMESITE='Strict',SESSION_COOKIE_SECURE=os.environ.get('HUB_SECURE','1')=='1',PERMANENT_SESSION_LIFETIME=dt.timedelta(hours=12),TRUSTED_HOSTS=['localhost','127.0.0.1','yanhaoo.com'])
+    app.config.update(PUBLIC=os.environ.get('HUB_PUBLIC','0')=='1',SECRET_KEY=os.environ.get('HUB_SECRET'),DB=os.environ.get('HUB_DB',str(ROOT/'.private/hub.sqlite')),PASSWORD_HASH=os.environ.get('HUB_PASSWORD_HASH'),INGEST_TOKEN=os.environ.get('HUB_INGEST_TOKEN'),MAX_CONTENT_LENGTH=2*1024*1024,SESSION_COOKIE_HTTPONLY=True,SESSION_COOKIE_SAMESITE='Strict',SESSION_COOKIE_SECURE=os.environ.get('HUB_SECURE','1')=='1',PERMANENT_SESSION_LIFETIME=dt.timedelta(hours=12),TRUST_PROXY=os.environ.get('HUB_TRUST_PROXY','0')=='1',TRUSTED_HOSTS=['localhost','127.0.0.1','yanhaoo.com'])
     if config: app.config.update(config)
+    # Only enable when the app container is isolated behind exactly one trusted reverse proxy.
+    # Otherwise users can forge X-Forwarded-For and bypass per-client login throttling.
+    if app.config['TRUST_PROXY']:
+        app.wsgi_app=ProxyFix(app.wsgi_app,x_for=1,x_proto=1)
     if not all(app.config.get(k) for k in ('SECRET_KEY','PASSWORD_HASH','INGEST_TOKEN')): raise RuntimeError('Initialize private config before starting')
     initialize(app.config['DB'])
     def db(): return connection(app.config['DB'])
