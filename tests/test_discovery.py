@@ -59,6 +59,8 @@ class DiscoveryTests(unittest.TestCase):
         self.assertTrue({'AIHOT','BestBlogs','GitHub','小红书','数字生命卡兹克'}.issubset(set(names)))
         self.assertTrue(all('access' in source for source in data['sources']))
         self.assertIn('没有调用模型',data['ranking_method'])
+        self.assertIn('categories',data)
+        self.assertTrue(any(c['key']=='paper' for c in data['categories']))
         self.assertNotIn('stars',str(data))
 
     def test_private_capture_idempotent_and_not_published(self):
@@ -76,6 +78,8 @@ class DiscoveryTests(unittest.TestCase):
         self.assertEqual(len(captures),1)
         self.assertEqual(captures[0]['source'],'小红书')
         self.assertIn('待验证应用价值',captures[0]['note'])
+        self.assertEqual(captures[0]['category'],'code')
+        self.assertIn('许可证',captures[0]['category_reason'])
         self.assertEqual(self.client.get('/api/items').json['items'],[])
         with connection(self.db) as c:
             self.assertEqual(c.execute('SELECT count(*) FROM items').fetchone()[0],0)
@@ -126,6 +130,8 @@ class DiscoveryTests(unittest.TestCase):
         self.assertEqual(self.client.put('/api/state/profile%3Ainterests',
           headers={'X-CSRF-Token':self.csrf},json={'revision':0,'value':{'weights':{}}}).status_code,409)
         self.assertEqual(second['profile']['weights']['science'],5)
+        self.assertEqual(second['ranking'][0]['category'],'paper')
+        self.assertEqual(sum(x['count'] for x in second['categories']),len(second['ranking']))
 
     def test_custom_hobbies_can_be_added_without_inventing_model_quality(self):
         profile=normalize_profile({'weights':{'agent':0,'open_source':0},
