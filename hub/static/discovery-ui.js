@@ -100,7 +100,7 @@
         try {
           await serverApi('/api/state/profile%3Ainterests','PUT',{
             revision:cached.profile_revision,value:{weights,
-              custom_interests:byId('custom-interest-input').value.split(/[,，、\\n]+/).map(s=>s.trim()).filter(Boolean).slice(0,12)}
+              custom_interests:byId('custom-interest-input').value.split(/[,，、\n]+/).map(s=>s.trim()).filter(Boolean).slice(0,12)}
           });
           await refresh();
         } catch(err) { message.textContent = err.message; }
