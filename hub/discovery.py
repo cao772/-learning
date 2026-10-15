@@ -153,7 +153,14 @@ def rank_items(items, profile=None, limit=80, today=None):
             "reasons": explanations,
             "possible_project": project,  # Keyword hint, NOT a confirmed integration.
         })
-    results.sort(key=lambda x: (-x["score"], x["item"].get("published_at") or "", x["item"].get("id") or ""))
+    def tie_break(row):
+        published = row["item"].get("published_at") or ""
+        try:
+            ordinal = dt.date.fromisoformat(published[:10]).toordinal()
+        except (ValueError, TypeError):
+            ordinal = 0
+        return (-row["score"], -ordinal, row["item"].get("id") or "")
+    results.sort(key=tie_break)
     return results[:limit]
 
 def canonical_link(raw):
