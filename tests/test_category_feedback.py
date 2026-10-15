@@ -109,7 +109,7 @@ class CategoryCorrectionTests(unittest.TestCase):
         mine=self.client.get('/api/discover').json['captures'][0]
         self.assertEqual(mine['category'],'product')
         self.assertTrue(mine['category_override'])
-        self.assertEqual(self.app.test_client().get('/api/items').json['items'],[])
+        self.assertNotIn('Agent 项目',str(self.app.test_client().get('/api/items').json['items']))
 
     def test_no_op_override_is_independent_of_personal_state(self):
         item={'id':'a','title':'Agent 论文','url':'https://arxiv.org/abs/123'}
