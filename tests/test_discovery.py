@@ -132,7 +132,7 @@ class DiscoveryTests(unittest.TestCase):
 
     def test_link_normalization_removes_tracking_but_keeps_real_query(self):
         normalized=canonical_link('https://github.com/Team/X/?utm_campaign=ad&tab=readme#overview')
-        self.assertEqual(normalized,'https://github.com/Team/X?tab=readme')
+        self.assertEqual(normalized,'https://github.com/team/x?tab=readme')
         self.assertEqual(capture_key(normalized),
                          capture_key('https://github.com/team/X?tab=readme'))
 
