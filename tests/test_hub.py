@@ -35,6 +35,11 @@ class HubTests(unittest.TestCase):
   self.assertEqual(self.c.get('/admin').status_code,200)
   self.assertIn('OWNER-SECRET',self.c.get('/api/items').get_data(as_text=True))
   self.assertIn('/static/course-sync.js',self.c.get('/learn/llm').get_data(as_text=True))
+ def test_database_lookup_indexes_preserved(self):
+  with connection(self.db) as db:
+   indexes={row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='index'")}
+  self.assertIn('idx_attempts_ip_at',indexes)
+  self.assertIn('idx_batches_at',indexes)
  def test_public_search_and_security_headers(self):
   self.app.config['PUBLIC']=True
   ingest(self.db,{'schema':1,'items':[self.item]})
