@@ -104,7 +104,7 @@ async function waitForServer(proc) {
     await page.locator('input[name="url"]').fill('https://github.com/example/repro-project?utm_source=xhs');
     await page.locator('input[name="title"]').fill('通过小红书发现的 GitHub 工具');
     await page.locator('select[name="source"]').selectOption({label:'小红书'});
-    await page.locator('textarea[name="note"]').fill('先核实许可证、可部署性和学习价值');
+    await page.locator('#capture-form textarea[name="note"]').fill('先核实许可证、可部署性和学习价值');
     await page.locator('#capture-form button[type="submit"]').click();
     await page.getByRole('heading',{name:'通过小红书发现的 GitHub 工具'}).waitFor();
     await page.locator('[data-research-item]').first().click();
