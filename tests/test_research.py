@@ -5,7 +5,7 @@ from pathlib import Path
 
 from werkzeug.security import generate_password_hash
 from hub.app import create_app, ingest, connection
-from hub.research import connect_sources, research_brief, classify_source
+from hub.research import connect_sources, research_brief, classify_source, interest_collections, suggested_research
 
 
 class ResearchLoopTests(unittest.TestCase):
@@ -71,6 +71,23 @@ class ResearchLoopTests(unittest.TestCase):
         self.assertFalse(out['same_link'])
         self.assertFalse(out['similar_title'])
 
+    def test_interest_theme_does_not_pretend_corrob_and_saved_suggestions_are_not_persisted(self):
+        matching=[
+            {'item':{'id':'a','title':'Agent Harness 讨论','source':'BestBlogs',
+                     'url':'https://example.org/a','personal':{'saved':True}},'match_keys':['agent']},
+            {'item':{'id':'b','title':'另一个 Agent 项目','source':'AIHOT',
+                     'url':'https://example.org/b','personal':{'feedback':'值得深读'}},'match_keys':['agent']},
+        ]
+        groups=interest_collections(matching)
+        self.assertEqual(len(groups),1)
+        self.assertEqual(groups[0]['source_count'],2)
+        self.assertIn('不代表',groups[0]['basis'])
+        self.assertEqual([r['id'] for r in suggested_research(matching,[])],['a','b'])
+        self.assertEqual([r['id'] for r in suggested_research(matching,['a'])],['b'])
+        self.assertTrue(all(r['status'].startswith('仅建议') for r in suggested_research(matching,[])))
+        matching[1]['item']['source']='BestBlogs'
+        self.assertEqual(interest_collections(matching),[])
+
     def test_private_discovery_and_plan_remain_private(self):
         ingest(self.db,{'schema':1,'items':[self.item]})
         self.assertEqual(self.client.get('/api/discover').status_code,401)
@@ -79,6 +96,8 @@ class ResearchLoopTests(unittest.TestCase):
         response=self.client.get('/api/discover')
         self.assertEqual(response.status_code,200)
         self.assertIn('connections', response.json)
+        self.assertIn('topic_groups',response.json)
+        self.assertIn('research_suggestions',response.json)
         self.assertEqual(response.json['research_guides']['paper-rna']['kind'],'paper')
         self.assertEqual(response.json['research_records'],[])
         note={
