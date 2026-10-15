@@ -273,6 +273,7 @@ def create_app(config=None):
                                 c.execute('SELECT 1 FROM personal WHERE id=?',(item_id,)).fetchone())
                 if not (exists_feed or exists_capture):abort(404)
                 if (set(value) - {'category','note'}
+                    or type(value.get('category')) is not str
                     or value.get('category') not in (set(CATEGORY_LABELS)|{'auto'})
                     or not isinstance(value.get('note',''),str)
                     or len(value.get('note',''))>200):abort(400)
