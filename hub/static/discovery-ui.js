@@ -53,7 +53,7 @@
         <p class="muted">${esc(r.category_reason || '分类待核验')}${(r.topic_tags||[]).length ? ' · 技术标签：'+(r.topic_tags||[]).map(esc).join(' / ') : ''}</p><div class="reason-line">${r.reasons.map(m=>`<span class="reason">${esc(m)}</span>`).join('')}</div>
         ${r.possible_project ? `<p class="project-hint">可能关联：${esc(r.possible_project)} <small>· 仅依据关键词提示，需自己验证</small></p>` : ''}
         <div class="actions"><button class="quiet" type="button" data-recommend-detail="${esc(x.id)}">精读 / 记录 / 收藏</button>
-          <button class="quiet" type="button" data-research-item="${esc(x.id)}">评估 / 列入计划</button><button class="quiet" type="button" data-correct-category="${esc(x.id)}">纠正分类</button><a href="${safeHref(x.url)}" target="_blank" rel="noopener noreferrer">看原文 ↗</a></div>
+          <button class="quiet" type="button" data-research-item="${esc(x.id)}">评估 / 列入计划</button><button class="quiet" type="button" data-correct-category="${esc(x.id)}">纠正分类</button><button class="quiet" type="button" data-translate-item="${esc(x.id)}">中英双语</button><a href="${safeHref(x.url)}" target="_blank" rel="noopener noreferrer">看原文 ↗</a></div>
       </article>`; }).join('')}</div>`;
     const choices = (data.categories || []).filter(c => c.count > 0);
     if (categoryMode !== 'all') {
@@ -86,7 +86,7 @@
     return data.captures.map(x => `<article class="captured-card">
       <div class="meta"><span class="tag candidate">私人线索 · 未核验</span> <span class="tag reviewed">${esc(x.category_label || "待分类")}</span> <span>${esc(x.source)}</span> <span>${esc(x.added_at?.slice(0,10)||'')}</span></div>
       <h3>${esc(x.title)}</h3><p>${esc(x.note)}</p>
-      <div class="actions"><button class="quiet" type="button" data-research-item="${esc(x.id)}">做验证计划</button><button class="quiet" type="button" data-correct-category="${esc(x.id)}">纠正分类</button><a href="${safeHref(x.url)}" target="_blank" rel="noopener noreferrer">查看保存的原文 ↗</a></div></article>`).join('');
+      <div class="actions"><button class="quiet" type="button" data-research-item="${esc(x.id)}">做验证计划</button><button class="quiet" type="button" data-correct-category="${esc(x.id)}">纠正分类</button><button class="quiet" type="button" data-translate-item="${esc(x.id)}">中英双语</button><a href="${safeHref(x.url)}" target="_blank" rel="noopener noreferrer">查看保存的原文 ↗</a></div></article>`).join('');
   }
   function sourceDirectory(data) {
     const grouped = new Map();
@@ -105,7 +105,8 @@
     return `<div id="discovery" class="discovery">
        <section class="discovery-intro"><p class="eyebrow">DISCOVERY / CURATION / LEARNING</p>
         <h2>不追完所有热点，只寻找对你有价值的东西。</h2>
-        <p class="muted">${esc(data.ranking_method)}</p></section>
+        <p class="muted">${esc(data.ranking_method)}</p>
+        <p class="muted">本次使用了 ${Number(data.recommendation?.explicit_feedback_items||0)} 条明确行为线索辅助排序；推荐分不代表信息真实性、论文质量或开源项目可运行性。</p></section>
        <div class="discovery-tabs" role="group" aria-label="发现工作台视图">
          <button type="button" class="${mode==='ranking'?'':'quiet'}" data-discover-mode="ranking">为我发现</button>
          <button type="button" class="${mode==='saved'?'':'quiet'}" data-discover-mode="saved">我从别处看到的</button>
