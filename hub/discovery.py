@@ -150,6 +150,12 @@ def canonical_link(raw):
         raise ValueError("不接受自定义端口")
     host = url.hostname.lower()
     path = url.path.rstrip("/") or "/"
+    # GitHub owner/repository identifiers are case-insensitive; deeper paths are not.
+    if host in ("github.com", "www.github.com"):
+        parts = path.split("/")
+        if len(parts) > 2:
+            parts[1], parts[2] = parts[1].lower(), parts[2].lower()
+            path = "/".join(parts)
     keep = [(key, val) for key, val in parse_qsl(url.query, keep_blank_values=True)
             if not key.lower().startswith("utm_") and key.lower() not in ("fbclid", "gclid")]
     return urlunsplit((url.scheme.lower(), host, path, urlencode(keep), ""))
