@@ -31,13 +31,28 @@
     return `<h2>同一件事，来自哪些入口？</h2>
       <p class="muted">这里只比较本次推荐范围及私人收藏链接：相同 URL 不等于独立证据；相同标题仅作为人工复核提示。不会合并正文或自动升级为精选。</p>
       ${groupMarkup('相同原始链接',groups.same_link || [], '已规范化链接的完全一致性比较；可能是同一篇文章被重复收录。')}
-      ${groupMarkup('标题一致的关联线索',groups.similar_title || [], '不同链接具有完全一致的长标题。请自行核实转载、引用或实际独立研究。')}`;
+      ${groupMarkup('标题一致的关联线索',groups.similar_title || [], '不同链接具有完全一致的长标题。请自行核实转载、引用或实际独立研究。')}
+      <section><h3>跨来源兴趣专题 · ${(dataset.topic_groups||[]).length}</h3>
+        <p class="muted">以下文章只共享规则关键词兴趣标签，不代表它们研究同一问题，更不能当作互相印证。</p>
+        ${(dataset.topic_groups||[]).length ? dataset.topic_groups.map(group => `<article class="research-group">
+          <h3>${esc(group.label)} <small>· ${group.source_count} 种来源</small></h3>
+          <p class="muted">${esc(group.basis)}</p><ul>${group.members.map(x=>`<li>
+          <a href="${href(x.url)}" target="_blank" rel="noopener noreferrer">${esc(x.title)}</a>
+          <small>${esc(x.source)}</small><button class="quiet" data-research-item="${esc(x.id)}" type="button">验证</button>
+          </li>`).join('')}</ul></article>`).join('') : '<p class="empty">当前没有两个以上来源共享兴趣关键词的专题。</p>'}</section>`;
   }
   function plans() {
     const rows = [...(dataset.research_records || [])]
       .sort((a,b) => String(b.updated_at || '').localeCompare(String(a.updated_at || '')));
     return `<h2>我的学习与项目验证计划</h2>
       <p class="muted">每一条都是你主动保存的评估，不会自动改变精选核验状态。先读来源、再检验复现与项目适配；未执行的实验不得写成完成。</p>
+      <section><h3>基于收藏和明确反馈的待办建议</h3>
+       <p class="muted">这是待选择的建议，没有自动创建任务或宣布研究完成。</p>
+       ${(dataset.research_suggestions||[]).length ? dataset.research_suggestions.map(x=>`<article class="research-card">
+         <h3>${esc(x.title)}</h3><p>${esc(x.reason)} · ${esc(x.status)}</p>
+         <button class="quiet" type="button" data-research-item="${esc(x.id)}">创建研究计划</button>
+       </article>`).join('') : '<p class="empty">收藏并标记值得深读后，尚未入计划的条目会出现在这里。</p>'}</section>
+      <h3>已经创建的验证记录 · ${rows.length}</h3>
       ${rows.length ? rows.map(r => `<article class="research-card">
         <div class="meta"><span class="tag reviewed">${esc(r.decision || '未评估')}</span>
           <span>${esc(r.updated_at?.slice(0,10)||'时间未知')}</span><span>${esc(r.test_status || '未运行')}</span></div>
