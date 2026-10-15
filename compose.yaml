@@ -1,0 +1,50 @@
+name: xunxu-hub
+services:
+  hub:
+    build: .
+    image: xunxu-hub:${HUB_IMAGE_TAG:-local}
+    env_file: .env
+    environment:
+      HUB_DB: /data/hub.sqlite
+      HUB_SECURE: "0"
+    ports:
+      - "127.0.0.1:8788:8000"
+    volumes:
+      - hub_data:/data
+    restart: unless-stopped
+    read_only: true
+    tmpfs: /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]
+    logging:
+      driver: json-file
+      options: {max-size: "5m", max-file: "3"}
+  sync:
+    image: xunxu-hub:${HUB_IMAGE_TAG:-local}
+    env_file: .env
+    environment:
+      HUB_DB: /data/hub.sqlite
+    volumes:
+      - hub_data:/data
+      - sync_state:/app/.private
+      - ./AI信息整合:/upstream
+    entrypoint: ["python", "-m", "hub.sync_loop"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import json,time,pathlib; p=pathlib.Path('/app/.private/sync-status.json'); assert p.exists() and time.time()-p.stat().st_mtime<600 and json.loads(p.read_text())['ok']"]
+      interval: 60s
+      start_period: 180s
+    restart: unless-stopped
+    read_only: true
+    tmpfs: /tmp
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    depends_on:
+      hub: {condition: service_healthy}
+    logging:
+      driver: json-file
+      options: {max-size: "2m", max-file: "2"}
+
+volumes:
+  hub_data:
+  sync_state:

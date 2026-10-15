@@ -1,0 +1,46 @@
+name: xunxu-hub
+services:
+  hub:
+    image: xunxu-hub:${HUB_IMAGE_TAG:?Set immutable release tag}
+    env_file: ../.env
+    environment:
+      HUB_DB: /data/hub.sqlite
+      HUB_SECURE: "1"
+    volumes: [hub_data:/data]
+    restart: unless-stopped
+    read_only: true
+    tmpfs: /tmp
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    logging:
+      driver: json-file
+      options: {max-size: "5m", max-file: "3"}
+  caddy:
+    image: caddy:2.10.2-alpine
+    ports: ["80:80", "443:443", "443:443/udp"]
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+    depends_on:
+      hub: {condition: service_healthy}
+  backup:
+    image: xunxu-hub:${HUB_IMAGE_TAG:?Set immutable release tag}
+    environment: {HUB_DB: /data/hub.sqlite}
+    volumes: [hub_data:/data, backups:/backups]
+    entrypoint: ["python", "-m", "hub.backup_loop"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import pathlib,time; files=list(pathlib.Path('/backups').glob('hub-*.sqlite')); assert files and time.time()-max(p.stat().st_mtime for p in files)<90000"]
+      interval: 1h
+      start_period: 60s
+    restart: unless-stopped
+    read_only: true
+    tmpfs: /tmp
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+volumes:
+  hub_data:
+  caddy_data:
+  caddy_config:
+  backups:

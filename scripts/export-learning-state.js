@@ -1,0 +1,2 @@
+/* Run only in your own old course page's console. Downloads only known course keys. */
+(()=>{const keys=['xunxu-llm-course-v1','xunxu-llm-course-v2','xunxu-llm-course-v3','xunxu-knowledge-lab-v1'];const states=keys.filter(k=>localStorage.getItem(k)).map(id=>({id,body:localStorage.getItem(id)}));const url=URL.createObjectURL(new Blob([JSON.stringify({schema:1,states},null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='循序-旧课程记录.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)})();

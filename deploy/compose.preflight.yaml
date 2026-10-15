@@ -1,0 +1,8 @@
+# Use together with compose.production.yaml; start only hub and backup.
+# Access via SSH tunnel until domain filing and public launch are ready.
+services:
+  hub:
+    environment:
+      HUB_SECURE: "0"
+    ports:
+      - "127.0.0.1:8788:8000"
