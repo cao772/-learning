@@ -11,6 +11,7 @@ import time
 from urllib.parse import urlsplit
 from flask import Flask, request, session, jsonify, redirect, render_template, send_file, abort
 from werkzeug.security import check_password_hash
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 ROOT=Path(__file__).resolve().parent.parent
 COURSES={'llm':'llm-learning.html','lab':'new-knowledge.html'}
@@ -32,6 +33,8 @@ def initialize(path):
         CREATE TABLE IF NOT EXISTS sessions(id TEXT PRIMARY KEY, expires REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS metadata(key TEXT PRIMARY KEY, value TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS attempts(ip TEXT NOT NULL, at REAL NOT NULL);
+        CREATE INDEX IF NOT EXISTS idx_attempts_ip_at ON attempts(ip, at);
+        CREATE INDEX IF NOT EXISTS idx_batches_at ON batches(at DESC);
         PRAGMA user_version=1;
         ''')
     os.chmod(path,0o600)
@@ -76,8 +79,12 @@ def ingest(path,payload):
 
 def create_app(config=None):
     app=Flask(__name__)
-    app.config.update(PUBLIC=os.environ.get('HUB_PUBLIC','0')=='1',SECRET_KEY=os.environ.get('HUB_SECRET'),DB=os.environ.get('HUB_DB',str(ROOT/'.private/hub.sqlite')),PASSWORD_HASH=os.environ.get('HUB_PASSWORD_HASH'),INGEST_TOKEN=os.environ.get('HUB_INGEST_TOKEN'),MAX_CONTENT_LENGTH=2*1024*1024,SESSION_COOKIE_HTTPONLY=True,SESSION_COOKIE_SAMESITE='Strict',SESSION_COOKIE_SECURE=os.environ.get('HUB_SECURE','1')=='1',PERMANENT_SESSION_LIFETIME=dt.timedelta(hours=12),TRUSTED_HOSTS=['localhost','127.0.0.1','yanhaoo.com'])
+    app.config.update(PUBLIC=os.environ.get('HUB_PUBLIC','0')=='1',SECRET_KEY=os.environ.get('HUB_SECRET'),DB=os.environ.get('HUB_DB',str(ROOT/'.private/hub.sqlite')),PASSWORD_HASH=os.environ.get('HUB_PASSWORD_HASH'),INGEST_TOKEN=os.environ.get('HUB_INGEST_TOKEN'),MAX_CONTENT_LENGTH=2*1024*1024,SESSION_COOKIE_HTTPONLY=True,SESSION_COOKIE_SAMESITE='Strict',SESSION_COOKIE_SECURE=os.environ.get('HUB_SECURE','1')=='1',PERMANENT_SESSION_LIFETIME=dt.timedelta(hours=12),TRUST_PROXY=os.environ.get('HUB_TRUST_PROXY','0')=='1',TRUSTED_HOSTS=['localhost','127.0.0.1','yanhaoo.com'])
     if config: app.config.update(config)
+    # Only enable when the app container is isolated behind exactly one trusted reverse proxy.
+    # Otherwise users can forge X-Forwarded-For and bypass per-client login throttling.
+    if app.config['TRUST_PROXY']:
+        app.wsgi_app=ProxyFix(app.wsgi_app,x_for=1,x_proto=1)
     if not all(app.config.get(k) for k in ('SECRET_KEY','PASSWORD_HASH','INGEST_TOKEN')): raise RuntimeError('Initialize private config before starting')
     initialize(app.config['DB'])
     def db(): return connection(app.config['DB'])
@@ -105,7 +112,10 @@ def create_app(config=None):
         response.headers['X-Content-Type-Options']='nosniff'
         response.headers['X-Frame-Options']='SAMEORIGIN'
         response.headers['Referrer-Policy']='same-origin'
-        response.headers['Content-Security-Policy']="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'"
+        response.headers['Content-Security-Policy']="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'; object-src 'none'"
+        response.headers['Permissions-Policy']='camera=(), microphone=(), geolocation=(), payment=()'
+        response.headers['Cross-Origin-Opener-Policy']='same-origin'
+        response.headers['Cross-Origin-Resource-Policy']='same-origin'
         if app.config['SESSION_COOKIE_SECURE']:response.headers['Strict-Transport-Security']='max-age=31536000'
         return response
     @app.route('/login',methods=['GET','POST'])
@@ -148,7 +158,10 @@ def create_app(config=None):
         return sorted(result,key=lambda x:x.get('published_at') or '',reverse=True)
     @app.get('/')
     def home():
-        if app.config['PUBLIC']:return render_template('public.html',items=public_items())
+        if app.config['PUBLIC']:
+            with db() as c:
+                last=c.execute('SELECT at FROM batches ORDER BY at DESC LIMIT 1').fetchone()
+            return render_template('public.html',items=public_items(),last_sync=last['at'] if last else None)
         return render_template('index.html',csrf=session['csrf'])
     @app.get('/admin')
     def admin():return render_template('index.html',csrf=session['csrf'])

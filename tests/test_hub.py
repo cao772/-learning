@@ -1,4 +1,6 @@
 import copy
+import io
+import sqlite3
 import json
 import tempfile
 import unittest
@@ -6,6 +8,7 @@ from pathlib import Path
 from werkzeug.security import generate_password_hash
 from hub.app import create_app, ingest, connection
 from hub.manage import backup
+from hub.offsite_stream import stream_backup
 
 class HubTests(unittest.TestCase):
  def setUp(self):
@@ -35,6 +38,34 @@ class HubTests(unittest.TestCase):
   self.assertEqual(self.c.get('/admin').status_code,200)
   self.assertIn('OWNER-SECRET',self.c.get('/api/items').get_data(as_text=True))
   self.assertIn('/static/course-sync.js',self.c.get('/learn/llm').get_data(as_text=True))
+ def test_offsite_snapshot_stream_is_valid_and_consistent(self):
+  self.login()
+  self.put('private-offsite-check',{'note':'test-only'})
+  destination=io.BytesIO()
+  stream_backup(self.db,destination,self.tmp.name)
+  exported=Path(self.tmp.name)/'offsite-copy.sqlite'
+  exported.write_bytes(destination.getvalue())
+  with sqlite3.connect(exported) as copied:
+   self.assertEqual(copied.execute('PRAGMA integrity_check').fetchone()[0],'ok')
+   row=copied.execute('SELECT body FROM personal WHERE id=?',('private-offsite-check',)).fetchone()
+   self.assertIn('test-only',row[0])
+ def test_database_lookup_indexes_preserved(self):
+  with connection(self.db) as db:
+   indexes={row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='index'")}
+  self.assertIn('idx_attempts_ip_at',indexes)
+  self.assertIn('idx_batches_at',indexes)
+ def test_public_search_and_security_headers(self):
+  self.app.config['PUBLIC']=True
+  ingest(self.db,{'schema':1,'items':[self.item]})
+  r=self.c.get('/')
+  self.assertEqual(r.status_code,200)
+  self.assertIn('id="public-search"',r.get_data(as_text=True))
+  self.assertIn('data-public-item',r.get_data(as_text=True))
+  self.assertIn('最近数据同步',r.get_data(as_text=True))
+  self.assertIn('object-src \'none\'',r.headers['Content-Security-Policy'])
+  self.assertIn('camera=()',r.headers['Permissions-Policy'])
+  self.assertEqual(r.headers['Cross-Origin-Resource-Policy'],'same-origin')
+  self.assertEqual(self.c.get('/api/export').status_code,401)
  def test_public_expiry_does_not_delete_private_saved_content(self):
   self.app.config['PUBLIC']=True
   self.item['expires_at']='2000-01-01T00:00:00+00:00'
@@ -59,6 +90,20 @@ class HubTests(unittest.TestCase):
   self.c.post('/logout',headers={'X-CSRF-Token':self.csrf})
   with self.c.session_transaction() as s:s.update(old)
   self.assertEqual(self.c.get('/api/items').status_code,401)
+ def test_forwarded_client_ip_requires_explicit_proxy_trust(self):
+  # Preflight direct HTTP must ignore forged X-Forwarded-For values.
+  self.c.get('/login')
+  with self.c.session_transaction() as session_data:csrf=session_data['login_csrf']
+  for i in range(8):
+   r=self.c.post('/login',data={'csrf':csrf,'password':'bad'},headers={'X-Forwarded-For':str(i)+'.example'})
+   self.assertEqual(r.status_code,200)
+  self.assertEqual(self.c.post('/login',data={'csrf':csrf,'password':'bad'},headers={'X-Forwarded-For':'new.example'}).status_code,429)
+  # Caddy mode trusts one last proxy hop, avoiding lockout across unrelated visitors.
+  trusted=create_app({**dict(self.app.config),'TRUST_PROXY':True})
+  other=trusted.test_client()
+  other.get('/login')
+  with other.session_transaction() as session_data:other_csrf=session_data['login_csrf']
+  self.assertEqual(other.post('/login',data={'csrf':other_csrf,'password':'bad'},headers={'X-Forwarded-For':'203.0.113.1'}).status_code,200)
  def test_login_rate_limit(self):
   self.c.get('/login')
   with self.c.session_transaction() as s:token=s['login_csrf']
