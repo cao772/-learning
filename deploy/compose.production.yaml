@@ -6,6 +6,7 @@ services:
     environment:
       HUB_DB: /data/hub.sqlite
       HUB_SECURE: "1"
+      HUB_TRUST_PROXY: "1"
     volumes: [hub_data:/data]
     restart: unless-stopped
     read_only: true
