@@ -40,3 +40,14 @@
 .discovery-card .tag.reviewed{white-space:normal}
 .discovery-category-section[hidden]{display:none}
 @media(max-width:760px){.category-search input{width:100%}#category-dialog{padding:20px}#category-form .actions button{flex:1 1 100%}}
+
+/* Bilingual reading works on desktop and mobile without embedding foreign sites. */
+#translation-dialog{width:min(1050px,95vw);max-height:90vh;overflow:auto}
+.bilingual-columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:26px;margin-top:15px}
+.bilingual-columns>section{min-width:0}
+.bilingual-columns h3{font-size:17px}
+.bilingual-columns .translation-source{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.8}
+.bilingual-columns form{display:grid;gap:12px}
+.bilingual-columns form label{display:grid;gap:7px}
+.bilingual-columns textarea{width:100%;max-width:100%;line-height:1.6}
+@media(max-width:760px){.bilingual-columns{grid-template-columns:1fr;gap:15px}#translation-dialog{padding:15px}.bilingual-columns .actions button{width:100%}}
