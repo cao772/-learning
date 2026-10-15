@@ -11,3 +11,5 @@
 .project-hint{color:var(--green);font-size:13px}.project-hint small{color:var(--muted)}.source-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.source{border:1px solid var(--line);border-radius:8px;padding:14px;display:flex;gap:5px;flex-direction:column;min-width:0}.source small{color:var(--muted)}
 .source a{font-size:12px}.source-group{margin:24px 0}.capture-form{display:grid;gap:12px}.capture-form label{display:grid;gap:6px;font-size:13px}.capture-form input,.capture-form select{max-width:none;width:100%}.captured-card h3{margin:8px 0}.captured-card{padding:19px 0}
 @media(max-width:760px){.source-grid,.interest-grid{grid-template-columns:1fr}.discovery-panel{padding:18px}.discovery-intro h2{font-size:23px}.discovery-tabs button{font-size:12px}}
+
+.interest-extra{display:grid;gap:6px;margin:13px 0 18px;font-size:13px}.interest-extra input{width:100%;max-width:100%}
