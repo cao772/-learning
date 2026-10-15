@@ -12,7 +12,7 @@ from urllib.parse import urlsplit
 from flask import Flask, request, session, jsonify, redirect, render_template, send_file, abort
 from werkzeug.security import check_password_hash
 from hub.discovery import INTERESTS, CATALOG, DEFAULT_WEIGHTS, rank_items, canonical_link, capture_key, normalize_profile
-from hub.research import connect_sources, research_brief
+from hub.research import connect_sources, research_brief, interest_collections, suggested_research
 
 ROOT=Path(__file__).resolve().parent.parent
 COURSES={'llm':'llm-learning.html','lab':'new-knowledge.html'}
@@ -178,7 +178,10 @@ def create_app(config=None):
             topics=[{'key':key,'label':value['label']} for key,value in INTERESTS.items()],
             profile=profile, profile_revision=profile_record.get('revision',0),
             sources=CATALOG, ranking=ranked, captures=captures,
-            connections=connect_sources(ranked,captures), research_guides=guidance,
+            connections=connect_sources(ranked,captures), topic_groups=interest_collections(ranked),
+            research_suggestions=suggested_research(
+                ranked, [key[len('research:'):] for key in stored if key.startswith('research:')]),
+            research_guides=guidance,
             research_records=[
                 {'key':key[len('research:'):],**value} for key,value in stored.items()
                 if key.startswith('research:') and isinstance(value,dict)
