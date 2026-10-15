@@ -14,6 +14,7 @@ from werkzeug.security import check_password_hash
 from werkzeug.middleware.proxy_fix import ProxyFix
 from hub.discovery import INTERESTS, CATALOG, DEFAULT_WEIGHTS, rank_items, canonical_link, capture_key, normalize_profile
 from hub.research import connect_sources, research_brief, interest_collections, suggested_research
+from hub.content_category import classify_item, category_overview
 
 ROOT=Path(__file__).resolve().parent.parent
 COURSES={'llm':'llm-learning.html','lab':'new-knowledge.html'}
@@ -183,13 +184,18 @@ def create_app(config=None):
                         for key,value in stored.items() if key.startswith('capture:')]
         captures.sort(key=lambda x: x.get('added_at') or '', reverse=True)
         ranked = rank_items(candidates, profile, limit=80)
+        # Category presentation is independent of interest preference weights.
+        for row in ranked:
+            row.update(classify_item(row['item']))
         captures = captures[:100]
+        for entry in captures:
+            entry.update(classify_item(entry))
         guidance = {str(row['item']['id']): research_brief(row['item']) for row in ranked}
         guidance.update({str(x['id']):research_brief(x) for x in captures})
         return jsonify(
             topics=[{'key':key,'label':value['label']} for key,value in INTERESTS.items()],
             profile=profile, profile_revision=profile_record.get('revision',0),
-            sources=CATALOG, ranking=ranked, captures=captures,
+            sources=CATALOG, ranking=ranked, categories=category_overview(ranked), captures=captures,
             connections=connect_sources(ranked,captures), topic_groups=interest_collections(ranked),
             research_suggestions=suggested_research(
                 ranked, [key[len('research:'):] for key in stored if key.startswith('research:')]),

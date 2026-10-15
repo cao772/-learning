@@ -155,29 +155,36 @@ def interest_collections(ranking, max_groups=12):
     constitute corroborating or independent support for a factual assertion.
     """
     from hub.discovery import INTERESTS
+    from hub.content_category import LABELS
     buckets = {}
     for record in ranking:
         if not isinstance(record, dict) or not isinstance(record.get("item"), dict):
             continue
         item = record["item"]
+        primary = record.get("category")
         for tag in record.get("match_keys", []):
             if not isinstance(tag, str) or (tag not in INTERESTS and not tag.startswith("custom:")):
                 continue
-            bucket = buckets.setdefault(tag, [])
+            # Repo and paper formats have their own browsing sections; topic
+            # comparisons also stay within one PRIMARY content category.
+            if tag in ("open_source", "research"):
+                continue
+            bucket = buckets.setdefault((tag,primary), [])
             key = str(item.get("id", ""))
             if key and all(str(other.get("id")) != key for other in bucket):
                 bucket.append(item)
     groups = []
-    for tag, entries in buckets.items():
+    for (tag, primary), entries in buckets.items():
         if len(entries) < 2:
             continue
         sources = {str(x.get("source") or "未知") for x in entries}
         if len(sources) < 2:
             continue
+        topic = INTERESTS[tag]["label"] if tag in INTERESTS else tag.removeprefix("custom:")
         groups.append({
-            "tag": tag,
-            "label": INTERESTS[tag]["label"] if tag in INTERESTS else tag.removeprefix("custom:"),
-            "basis": "关键词命中同一兴趣，不代表事件、技术或结论相同",
+            "tag": tag, "category": primary,
+            "label": topic + (" · " + LABELS[primary] if primary in LABELS else ""),
+            "basis": "同一主分类内关键词命中兴趣，不代表结论相同；论文、代码项目等不得混编",
             "source_count": len(sources),
             "members": [_provenance(item, "feed") for item in entries[:12]],
         })

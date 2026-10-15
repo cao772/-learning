@@ -9,17 +9,17 @@ import re
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 INTERESTS = {
-    "agent": {"label": "Agent / MCP / 工程工具", "terms": (
+    "agent": {"label": "Agent / MCP 技术方向", "terms": (
         "agent", "mcp", "codex", "harness", "skill", "workflow", "智能体", "工具调用", "上下文工程", "推理优化", "llama.cpp")},
-    "open_source": {"label": "开源项目与可用产品", "terms": (
+    "open_source": {"label": "代码仓库与开源工具偏好", "terms": (
         "github", "开源", "open source", "open-source", "sdk", "repo", "框架", "自托管", "self-host", "产品发布")},
     "algorithms": {"label": "算法、模型与评测", "terms": (
-        "benchmark", "eval", "model", "llm", "rl", "transformer", "多模态", "强化学习", "机器学习", "模型", "论文", "训练", "推理")},
+        "benchmark", "eval", "model", "llm", "rl", "transformer", "多模态", "强化学习", "机器学习", "模型", "训练", "推理")},
     "architecture": {"label": "系统架构与工程实践", "terms": (
         "architecture", "database", "docker", "部署", "架构", "可观测", "性能", "数据库", "数据工程", "系统设计", "成本")},
     "product": {"label": "产品经理与商业视角", "terms": (
         "产品", "pmf", "增长", "商业化", "体验", "用户研究", "产品管理", "需求", "路线图", "竞品", "strategy")},
-    "research": {"label": "论文与前沿研究", "terms": (
+    "research": {"label": "论文与科研偏好", "terms": (
         "arxiv", "paper", "论文", "研究进展", "研究发现", "实验", "理论", "nature", "science", "科研")},
     "science": {"label": "自然、生物与数学探索", "terms": (
         "rna", "biology", "biology", "生物", "基因", "自然", "数学", "物理", "化学", "细胞", "蛋白质", "math")},
