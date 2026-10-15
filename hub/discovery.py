@@ -69,7 +69,17 @@ def normalize_profile(raw):
         value = weights.get(key)
         if type(value) is int and 0 <= value <= 5:
             result[key] = value
-    return {"weights": result}
+    raw_custom = raw.get("custom_interests", [])
+    raw_custom = raw_custom if isinstance(raw_custom, list) else []
+    custom = []
+    for term in raw_custom:
+        if isinstance(term, str):
+            term = term.strip()
+            if 1 <= len(term) <= 32 and term.casefold() not in [x.casefold() for x in custom]:
+                custom.append(term)
+            if len(custom) >= 12:
+                break
+    return {"weights": result, "custom_interests": custom}
 
 def _recent(published_at, today):
     if not isinstance(published_at, str) or not published_at:
@@ -88,7 +98,9 @@ def _project_hint(text):
 
 def rank_items(items, profile=None, limit=80, today=None):
     """Rules offer a reading order, never a prediction of quality or Github stars."""
-    weights = normalize_profile(profile)["weights"]
+    preference = normalize_profile(profile)
+    weights = preference["weights"]
+    custom_interests = preference["custom_interests"]
     today = today or dt.datetime.now(dt.timezone.utc).date()
     results = []
     for item in items:
@@ -107,9 +119,13 @@ def rank_items(items, profile=None, limit=80, today=None):
             if weights[key] and any(term in text for term in entry["terms"]):
                 matches.append((weights[key], key, entry["label"]))
         matches.sort(key=lambda x: (-x[0], x[1]))
+        custom_matches = [term for term in custom_interests if term.casefold() in text][:2]
         # Capped relevance avoids keyword stuffing dominating unrelated high-quality reading.
         score = 2 + sum(weight * 2 for weight, _, _ in matches[:2])
         explanations = ["匹配：" + m[2] for m in matches[:2]]
+        if custom_matches:
+            score += 4 * len(custom_matches)
+            explanations.extend("新增兴趣：" + term for term in custom_matches)
         if item.get("verification_status") == "reviewed":
             score += 5
             explanations.append("有编辑核验记录（不等于工具已实测）")
@@ -133,7 +149,7 @@ def rank_items(items, profile=None, limit=80, today=None):
         results.append({
             "item": item,
             "score": max(0, score),
-            "match_keys": [m[1] for m in matches],
+            "match_keys": [m[1] for m in matches] + ["custom:" + x for x in custom_matches],
             "reasons": explanations,
             "possible_project": project,  # Keyword hint, NOT a confirmed integration.
         })
