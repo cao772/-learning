@@ -11,6 +11,7 @@ import time
 from urllib.parse import urlsplit
 from flask import Flask, request, session, jsonify, redirect, render_template, send_file, abort
 from werkzeug.security import check_password_hash
+from hub.discovery import INTERESTS, CATALOG, DEFAULT_WEIGHTS, rank_items, canonical_link, capture_key, normalize_profile
 
 ROOT=Path(__file__).resolve().parent.parent
 COURSES={'llm':'llm-learning.html','lab':'new-knowledge.html'}
@@ -152,6 +153,52 @@ def create_app(config=None):
         return render_template('index.html',csrf=session['csrf'])
     @app.get('/admin')
     def admin():return render_template('index.html',csrf=session['csrf'])
+    @app.get('/api/discover')
+    def discover():
+        # Protected by before_request. Never expose the owner's interests or bookmarks publicly.
+        with db() as c:
+            state_rows = c.execute('SELECT id,body,revision FROM personal').fetchall()
+            stored = {row['id']:{**json.loads(row['body']),'revision':row['revision']} for row in state_rows}
+            profile_record = stored.get('profile:interests', {})
+            profile = normalize_profile(profile_record)
+            candidates = []
+            for row in c.execute('SELECT body FROM items'):
+                item = json.loads(row['body'])
+                item['personal'] = stored.get(item['id'], {})
+                candidates.append(item)
+            captures = [{**value, 'id': key}
+                        for key,value in stored.items() if key.startswith('capture:')]
+        captures.sort(key=lambda x: x.get('added_at') or '', reverse=True)
+        return jsonify(
+            topics=[{'key':key,'label':value['label']} for key,value in INTERESTS.items()],
+            profile=profile, profile_revision=profile_record.get('revision',0),
+            sources=CATALOG, ranking=rank_items(candidates,profile,limit=80),
+            captures=captures[:100], ranking_method='显式关键词、时间、核验与个人反馈的规则排序；没有调用模型，也没有查询 Github 星数'
+        )
+
+    @app.post('/api/capture')
+    def capture():
+        body = request.get_json(silent=True)
+        if not isinstance(body,dict): abort(400)
+        try:
+            url = canonical_link(body.get('url'))
+        except (ValueError, TypeError):
+            abort(400)
+        title, note, source = body.get('title'), body.get('note',''), body.get('source','手动收集')
+        if not isinstance(title,str) or not 1 <= len(title.strip()) <= 200: abort(400)
+        if not isinstance(note,str) or len(note) > 3000: abort(400)
+        if not isinstance(source,str) or len(source) > 80: abort(400)
+        key = capture_key(url)
+        record = {'url':url,'title':title.strip(),'note':note.strip(),'source':source.strip() or '手动收集',
+                  'added_at':utc(),'verification_status':'candidate','reviewed':False}
+        with db() as c:
+            c.execute('BEGIN IMMEDIATE')
+            existing = c.execute('SELECT 1 FROM personal WHERE id=?',(key,)).fetchone()
+            if existing: return jsonify(id=key,duplicate=True)
+            c.execute('INSERT INTO personal VALUES(?,?,?)',
+                      (key,json.dumps(record,ensure_ascii=False),1))
+        return jsonify(id=key,duplicate=False),201
+
     @app.get('/api/items')
     def items():
         if app.config['PUBLIC'] and not authenticated():return jsonify(items=public_items())
