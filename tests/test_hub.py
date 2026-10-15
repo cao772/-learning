@@ -12,6 +12,35 @@ class HubTests(unittest.TestCase):
   self.tmp=tempfile.TemporaryDirectory();self.db=str(Path(self.tmp.name)/'test.sqlite')
   self.app=create_app({'TESTING':True,'DB':self.db,'SECRET_KEY':'test-secret','PASSWORD_HASH':generate_password_hash('test-password',method='pbkdf2:sha256:1000'),'INGEST_TOKEN':'test-ingest','SESSION_COOKIE_SECURE':False})
   self.c=self.app.test_client();self.item={'id':'fixture-release-v1','title':'合成测试条目','url':'https://example.org/releases/v1','published_at':'2026-10-14','collected_at':'2026-10-15T01:00:00+00:00','source':'测试','topic':'测试','summary':'合成验收资料','verification_status':'candidate','scope':'标题','evidence':[],'expires_at':'2099-01-01T00:00:00+00:00'}
+ def test_public_reading_never_exposes_owner_state(self):
+  self.app.config['PUBLIC']=True
+  self.item['private_extra']='hidden-ingest-field'
+  ingest(self.db,{'schema':1,'items':[self.item]})
+  with connection(self.db) as c:
+   c.execute('INSERT INTO personal VALUES(?,?,?)',(self.item['id'],json.dumps({'note':'OWNER-SECRET','saved':True}),1))
+  self.assertEqual(self.c.get('/').status_code,200)
+  result=self.c.get('/api/items')
+  self.assertEqual(result.status_code,200)
+  self.assertNotIn('personal',result.json['items'][0])
+  self.assertNotIn('OWNER-SECRET',result.get_data(as_text=True))
+  self.assertNotIn('private_extra',result.json['items'][0])
+  for path in ['/api/export','/api/status','/api/state/a','/api/sync-feedback']:
+   self.assertEqual(self.c.get(path).status_code,401)
+  self.assertEqual(self.c.put('/api/state/a',json={'value':{}}).status_code,401)
+  self.assertEqual(self.c.post('/api/ingest',json={}).status_code,401)
+  for path in ['/learn/llm','/learn/lab']:
+   r=self.c.get(path);self.assertEqual(r.status_code,200)
+   self.assertNotIn('/static/course-sync.js',r.get_data(as_text=True))
+  self.login()
+  self.assertEqual(self.c.get('/admin').status_code,200)
+  self.assertIn('OWNER-SECRET',self.c.get('/api/items').get_data(as_text=True))
+  self.assertIn('/static/course-sync.js',self.c.get('/learn/llm').get_data(as_text=True))
+ def test_public_expiry_does_not_delete_private_saved_content(self):
+  self.app.config['PUBLIC']=True
+  self.item['expires_at']='2000-01-01T00:00:00+00:00'
+  ingest(self.db,{'schema':1,'items':[self.item]})
+  self.assertEqual(self.c.get('/api/items').json['items'],[])
+  with connection(self.db) as c:self.assertEqual(c.execute('SELECT count(*) FROM items').fetchone()[0],1)
  def tearDown(self):self.tmp.cleanup()
  def login(self):
   self.c.get('/login')

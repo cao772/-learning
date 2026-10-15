@@ -76,7 +76,7 @@ def ingest(path,payload):
 
 def create_app(config=None):
     app=Flask(__name__)
-    app.config.update(SECRET_KEY=os.environ.get('HUB_SECRET'),DB=os.environ.get('HUB_DB',str(ROOT/'.private/hub.sqlite')),PASSWORD_HASH=os.environ.get('HUB_PASSWORD_HASH'),INGEST_TOKEN=os.environ.get('HUB_INGEST_TOKEN'),MAX_CONTENT_LENGTH=2*1024*1024,SESSION_COOKIE_HTTPONLY=True,SESSION_COOKIE_SAMESITE='Strict',SESSION_COOKIE_SECURE=os.environ.get('HUB_SECURE','1')=='1',PERMANENT_SESSION_LIFETIME=dt.timedelta(hours=12),TRUSTED_HOSTS=['localhost','127.0.0.1','yanhaoo.com'])
+    app.config.update(PUBLIC=os.environ.get('HUB_PUBLIC','0')=='1',SECRET_KEY=os.environ.get('HUB_SECRET'),DB=os.environ.get('HUB_DB',str(ROOT/'.private/hub.sqlite')),PASSWORD_HASH=os.environ.get('HUB_PASSWORD_HASH'),INGEST_TOKEN=os.environ.get('HUB_INGEST_TOKEN'),MAX_CONTENT_LENGTH=2*1024*1024,SESSION_COOKIE_HTTPONLY=True,SESSION_COOKIE_SAMESITE='Strict',SESSION_COOKIE_SECURE=os.environ.get('HUB_SECURE','1')=='1',PERMANENT_SESSION_LIFETIME=dt.timedelta(hours=12),TRUSTED_HOSTS=['localhost','127.0.0.1','yanhaoo.com'])
     if config: app.config.update(config)
     if not all(app.config.get(k) for k in ('SECRET_KEY','PASSWORD_HASH','INGEST_TOKEN')): raise RuntimeError('Initialize private config before starting')
     initialize(app.config['DB'])
@@ -92,6 +92,7 @@ def create_app(config=None):
             if not hmac.compare_digest(token,app.config['INGEST_TOKEN']): abort(401)
             return None
         if request.path.startswith('/static/') or request.path=='/login': return None
+        if app.config['PUBLIC'] and request.method in ('GET','HEAD') and (request.path in ('/','/api/items') or request.path in ('/learn/llm','/learn/lab')): return None
         if not authenticated():
             if request.path.startswith('/api/'): abort(401)
             return redirect('/login')
@@ -122,7 +123,7 @@ def create_app(config=None):
                 session.clear();session.permanent=True;session['sid']=secrets.token_urlsafe(32);session['csrf']=secrets.token_urlsafe(32)
                 with db() as c:
                     c.execute('DELETE FROM sessions WHERE expires<?',(time.time(),));c.execute('INSERT INTO sessions VALUES(?,?)',(session['sid'],time.time()+43200));c.execute('DELETE FROM attempts WHERE ip=?',(ip,))
-                return redirect('/')
+                return redirect('/admin' if app.config['PUBLIC'] else '/')
             error='口令不正确，请重试。'
         return render_template('login.html',csrf=session['login_csrf'],error=error)
     @app.post('/logout')
@@ -135,10 +136,25 @@ def create_app(config=None):
     def health():
         with db() as c:c.execute('SELECT 1')
         return jsonify(ok=True)
+    def public_items():
+        # Explicit allowlist: never serialize personal state or arbitrary ingest fields.
+        fields={'id','title','url','published_at','source','topic','summary','verification_status','scope','verification_notes','learning_value'}
+        result=[]
+        with db() as c:
+            for row in c.execute('SELECT body FROM items'):
+                x=json.loads(row['body'])
+                if x.get('expires_at') and x['verification_status']=='candidate' and dt.datetime.fromisoformat(x['expires_at'])<dt.datetime.now(dt.timezone.utc):continue
+                result.append({k:v for k,v in x.items() if k in fields})
+        return sorted(result,key=lambda x:x.get('published_at') or '',reverse=True)
     @app.get('/')
-    def home():return render_template('index.html',csrf=session['csrf'])
+    def home():
+        if app.config['PUBLIC']:return render_template('public.html',items=public_items())
+        return render_template('index.html',csrf=session['csrf'])
+    @app.get('/admin')
+    def admin():return render_template('index.html',csrf=session['csrf'])
     @app.get('/api/items')
     def items():
+        if app.config['PUBLIC'] and not authenticated():return jsonify(items=public_items())
         result=[]
         with db() as c:
             rows=c.execute('SELECT id,body FROM items').fetchall()
@@ -203,6 +219,6 @@ def create_app(config=None):
         # Inject synchronization only in the authenticated server copy; offline artifacts stay byte-identical.
         markup=(ROOT/COURSES[course]).read_text()
         bridge='<script src="/static/course-sync.js"></script>'
-        markup=markup.replace('<head>','<head>'+bridge,1)
+        if authenticated():markup=markup.replace('<head>','<head>'+bridge,1)
         return markup
     return app
