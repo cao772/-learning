@@ -14,7 +14,7 @@ from werkzeug.security import check_password_hash
 from werkzeug.middleware.proxy_fix import ProxyFix
 from hub.discovery import INTERESTS, CATALOG, DEFAULT_WEIGHTS, rank_items, canonical_link, capture_key, normalize_profile
 from hub.research import connect_sources, research_brief, interest_collections, suggested_research
-from hub.content_category import classify_item, category_overview
+from hub.content_category import classify_item, apply_owner_category, category_overview, LABELS as CATEGORY_LABELS
 
 ROOT=Path(__file__).resolve().parent.parent
 COURSES={'llm':'llm-learning.html','lab':'new-knowledge.html'}
@@ -186,10 +186,10 @@ def create_app(config=None):
         ranked = rank_items(candidates, profile, limit=80)
         # Category presentation is independent of interest preference weights.
         for row in ranked:
-            row.update(classify_item(row['item']))
+            row.update(apply_owner_category(row['item'],stored.get('category:'+str(row['item']['id']))))
         captures = captures[:100]
         for entry in captures:
-            entry.update(classify_item(entry))
+            entry.update(apply_owner_category(entry,stored.get('category:'+str(entry['id']))))
         guidance = {str(row['item']['id']): research_brief(row['item']) for row in ranked}
         guidance.update({str(x['id']):research_brief(x) for x in captures})
         return jsonify(
@@ -264,6 +264,19 @@ def create_app(config=None):
             if not isinstance(value,dict) or len(json.dumps(value))>300000:abort(400)
             if key in KEYS and any(k not in {'last','lesson','step','done','answers','notes'} for k in value):abort(400)
             if value.get('feedback') and value['feedback'] not in LABELS:abort(400)
+            if key.startswith('category:'):
+                item_id=key[len('category:'):]
+                if not item_id or len(item_id)>100:abort(400)
+                # Category corrections only apply to an existing feed or private capture.
+                exists_feed=c.execute('SELECT 1 FROM items WHERE id=?',(item_id,)).fetchone()
+                exists_capture=(item_id.startswith('capture:') and
+                                c.execute('SELECT 1 FROM personal WHERE id=?',(item_id,)).fetchone())
+                if not (exists_feed or exists_capture):abort(404)
+                if (set(value) - {'category','note'}
+                    or value.get('category') not in (set(CATEGORY_LABELS)|{'auto'})
+                    or not isinstance(value.get('note',''),str)
+                    or len(value.get('note',''))>200):abort(400)
+                value={'category':value['category'],'note':value.get('note','').strip()}
             c.execute('BEGIN IMMEDIATE')
             row=c.execute('SELECT * FROM personal WHERE id=?',(key,)).fetchone();revision=row['revision'] if row else 0
             previous=json.loads(row['body']) if row else {}
