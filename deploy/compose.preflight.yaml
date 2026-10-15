@@ -4,5 +4,6 @@ services:
   hub:
     environment:
       HUB_SECURE: "0"
+      HUB_TRUST_PROXY: "0" # SSH-only preflight bypasses Caddy, never trust forwarded IPs
     ports:
       - "127.0.0.1:8788:8000"
