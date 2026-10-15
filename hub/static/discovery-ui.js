@@ -81,7 +81,7 @@
   function capturedCards(data) {
     if (!data.captures.length) return '<p class="empty">你从小红书或 GitHub 看到的新鲜东西，可以先保存在上面的私人清单中。</p>';
     return data.captures.map(x => `<article class="captured-card">
-      <div class="meta"><span class="tag candidate">私人线索 · 未核验</span> <span>${esc(x.source)}</span> <span>${esc(x.added_at?.slice(0,10)||'')}</span></div>
+      <div class="meta"><span class="tag candidate">私人线索 · 未核验</span> <span class="tag reviewed">${esc(x.category_label || "待分类")}</span> <span>${esc(x.source)}</span> <span>${esc(x.added_at?.slice(0,10)||'')}</span></div>
       <h3>${esc(x.title)}</h3><p>${esc(x.note)}</p>
       <div class="actions"><button class="quiet" type="button" data-research-item="${esc(x.id)}">做验证计划</button><a href="${safeHref(x.url)}" target="_blank" rel="noopener noreferrer">查看保存的原文 ↗</a></div></article>`).join('');
   }
