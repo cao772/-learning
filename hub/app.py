@@ -105,7 +105,10 @@ def create_app(config=None):
         response.headers['X-Content-Type-Options']='nosniff'
         response.headers['X-Frame-Options']='SAMEORIGIN'
         response.headers['Referrer-Policy']='same-origin'
-        response.headers['Content-Security-Policy']="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'"
+        response.headers['Content-Security-Policy']="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'; object-src 'none'"
+        response.headers['Permissions-Policy']='camera=(), microphone=(), geolocation=(), payment=()'
+        response.headers['Cross-Origin-Opener-Policy']='same-origin'
+        response.headers['Cross-Origin-Resource-Policy']='same-origin'
         if app.config['SESSION_COOKIE_SECURE']:response.headers['Strict-Transport-Security']='max-age=31536000'
         return response
     @app.route('/login',methods=['GET','POST'])
@@ -148,7 +151,10 @@ def create_app(config=None):
         return sorted(result,key=lambda x:x.get('published_at') or '',reverse=True)
     @app.get('/')
     def home():
-        if app.config['PUBLIC']:return render_template('public.html',items=public_items())
+        if app.config['PUBLIC']:
+            with db() as c:
+                last=c.execute('SELECT at FROM batches ORDER BY at DESC LIMIT 1').fetchone()
+            return render_template('public.html',items=public_items(),last_sync=last['at'] if last else None)
         return render_template('index.html',csrf=session['csrf'])
     @app.get('/admin')
     def admin():return render_template('index.html',csrf=session['csrf'])
