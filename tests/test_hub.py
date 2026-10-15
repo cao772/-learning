@@ -35,6 +35,18 @@ class HubTests(unittest.TestCase):
   self.assertEqual(self.c.get('/admin').status_code,200)
   self.assertIn('OWNER-SECRET',self.c.get('/api/items').get_data(as_text=True))
   self.assertIn('/static/course-sync.js',self.c.get('/learn/llm').get_data(as_text=True))
+ def test_public_search_and_security_headers(self):
+  self.app.config['PUBLIC']=True
+  ingest(self.db,{'schema':1,'items':[self.item]})
+  r=self.c.get('/')
+  self.assertEqual(r.status_code,200)
+  self.assertIn('id="public-search"',r.get_data(as_text=True))
+  self.assertIn('data-public-item',r.get_data(as_text=True))
+  self.assertIn('最近数据同步',r.get_data(as_text=True))
+  self.assertIn('object-src \'none\'',r.headers['Content-Security-Policy'])
+  self.assertIn('camera=()',r.headers['Permissions-Policy'])
+  self.assertEqual(r.headers['Cross-Origin-Resource-Policy'],'same-origin')
+  self.assertEqual(self.c.get('/api/export').status_code,401)
  def test_public_expiry_does_not_delete_private_saved_content(self):
   self.app.config['PUBLIC']=True
   self.item['expires_at']='2000-01-01T00:00:00+00:00'
