@@ -65,6 +65,17 @@ async function waitForServer(proc) {
     await page.locator('button[data-view="discover"]').waitFor();
     await page.locator('button[data-view="discover"]').click();
     await page.getByRole('heading',{name:'我的兴趣权重'}).waitFor();
+    await page.locator('button[data-discovery-category="paper"]').waitFor();
+    await page.locator('button[data-discovery-category="agent"]').waitFor();
+    await page.locator('button[data-discovery-category="paper"]').click();
+    await page.waitForFunction(() => {
+      const cards=document.querySelectorAll('.discovery-card');
+      return cards.length===1 && cards[0].textContent.includes('RNA');
+    });
+    await page.locator('button[data-discovery-category="code"]').click();
+    await page.getByText('这个分类暂无内容。').waitFor();
+    await page.locator('button[data-discovery-category="all"]').click();
+    await page.waitForFunction(() => document.querySelectorAll('.discovery-card').length===2);
     await page.screenshot({path:path.join(evidence,'02-private-discovery.png'),fullPage:true});
 
     await page.locator('button[data-discover-mode="saved"]').click();
