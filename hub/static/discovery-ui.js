@@ -51,7 +51,7 @@
         <div class="reason-line">${r.reasons.map(m=>`<span class="reason">${esc(m)}</span>`).join('')}</div>
         ${r.possible_project ? `<p class="project-hint">可能关联：${esc(r.possible_project)} <small>· 仅依据关键词提示，需自己验证</small></p>` : ''}
         <div class="actions"><button class="quiet" type="button" data-recommend-detail="${esc(x.id)}">精读 / 记录 / 收藏</button>
-          <a href="${safeHref(x.url)}" target="_blank" rel="noopener noreferrer">看原文 ↗</a></div>
+          <button class="quiet" type="button" data-research-item="${esc(x.id)}">评估 / 列入计划</button><a href="${safeHref(x.url)}" target="_blank" rel="noopener noreferrer">看原文 ↗</a></div>
       </article>`; }).join('')}</div>`;
   }
   function capturedCards(data) {
@@ -59,7 +59,7 @@
     return data.captures.map(x => `<article class="captured-card">
       <div class="meta"><span class="tag candidate">私人线索 · 未核验</span> <span>${esc(x.source)}</span> <span>${esc(x.added_at?.slice(0,10)||'')}</span></div>
       <h3>${esc(x.title)}</h3><p>${esc(x.note)}</p>
-      <a href="${safeHref(x.url)}" target="_blank" rel="noopener noreferrer">查看保存的原文 ↗</a></article>`).join('');
+      <div class="actions"><button class="quiet" type="button" data-research-item="${esc(x.id)}">做验证计划</button><a href="${safeHref(x.url)}" target="_blank" rel="noopener noreferrer">查看保存的原文 ↗</a></div></article>`).join('');
   }
   function sourceDirectory(data) {
     const grouped = new Map();
@@ -82,14 +82,19 @@
        <div class="discovery-tabs" role="group" aria-label="发现工作台视图">
          <button type="button" class="${mode==='ranking'?'':'quiet'}" data-discover-mode="ranking">为我发现</button>
          <button type="button" class="${mode==='saved'?'':'quiet'}" data-discover-mode="saved">我从别处看到的</button>
+         <button type="button" class="${mode==='connections'?'':'quiet'}" data-discover-mode="connections">跨来源线索</button>
+         <button type="button" class="${mode==='plans'?'':'quiet'}" data-discover-mode="plans">验证与学习计划</button>
          <button type="button" class="${mode==='sources'?'':'quiet'}" data-discover-mode="sources">信息源地图</button></div>
        ${mode==='ranking' ? topicSummary(data) + `<h2>按我的兴趣排列 · ${data.ranking.length} 条</h2>`+rankedCards(data) :
-          mode==='saved' ? captureForm + '<h2>我的私人待核验清单</h2>'+capturedCards(data) : sourceDirectory(data)}
+          mode==='saved' ? captureForm + '<h2>我的私人待核验清单</h2>'+capturedCards(data) :
+          mode==='connections' || mode==='plans' ? '<section id="research-board" class="discovery-panel"></section>' : sourceDirectory(data)}
        </div>`;
   }
   async function refresh() {
     cached = await serverApi('/api/discover');
     root().innerHTML = markup(cached);
+    if (typeof window.renderResearchAddon === 'function')
+      window.renderResearchAddon({data:cached, mode, api:serverApi});
     if (mode==='ranking') {
       const form = byId('interest-form');
       form.onsubmit = async e => {
@@ -137,4 +142,5 @@
     }
   });
   window.renderDiscovery = show;
+  window.refreshDiscovery = refresh;
 })();
