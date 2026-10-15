@@ -71,6 +71,20 @@ class HubTests(unittest.TestCase):
   self.c.post('/logout',headers={'X-CSRF-Token':self.csrf})
   with self.c.session_transaction() as s:s.update(old)
   self.assertEqual(self.c.get('/api/items').status_code,401)
+ def test_forwarded_client_ip_requires_explicit_proxy_trust(self):
+  # Preflight direct HTTP must ignore forged X-Forwarded-For values.
+  self.c.get('/login')
+  with self.c.session_transaction() as session_data:csrf=session_data['login_csrf']
+  for i in range(8):
+   r=self.c.post('/login',data={'csrf':csrf,'password':'bad'},headers={'X-Forwarded-For':str(i)+'.example'})
+   self.assertEqual(r.status_code,200)
+  self.assertEqual(self.c.post('/login',data={'csrf':csrf,'password':'bad'},headers={'X-Forwarded-For':'new.example'}).status_code,429)
+  # Caddy mode trusts one last proxy hop, avoiding lockout across unrelated visitors.
+  trusted=create_app({**dict(self.app.config),'TRUST_PROXY':True})
+  other=trusted.test_client()
+  other.get('/login')
+  with other.session_transaction() as session_data:other_csrf=session_data['login_csrf']
+  self.assertEqual(other.post('/login',data={'csrf':other_csrf,'password':'bad'},headers={'X-Forwarded-For':'203.0.113.1'}).status_code,200)
  def test_login_rate_limit(self):
   self.c.get('/login')
   with self.c.session_transaction() as s:token=s['login_csrf']
