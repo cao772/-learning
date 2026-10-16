@@ -14,6 +14,7 @@ test('public filtering is progressive, scoped, and resettable', () => {
   const status = makeControl('public-status');
   status.value = 'all';
   const reset = makeControl('public-reset');
+  const empty = {hidden:true};
   const tabs = ['all','agent','code'].map(category => ({...makeControl(category), dataset:{category}, classList:{toggle(){}}, setAttribute(){}}));
   const review = {textContent: 'Harness 成本 研究', dataset: {kind: 'reviewed',category:'agent'}, hidden: false};
   const candidate = {textContent: 'Docling 试用线索', dataset: {kind: 'candidate',category:'code'}, hidden: false};
@@ -30,7 +31,7 @@ test('public filtering is progressive, scoped, and resettable', () => {
   });
   const elements = {
     'public-search': search, 'public-status': status,
-    'public-reset': reset
+    'public-reset': reset, 'public-empty': empty
   };
   const document = {
     getElementById: id => elements[id],
@@ -53,14 +54,19 @@ test('public filtering is progressive, scoped, and resettable', () => {
   callbacks['public-search:input']();
   assert.equal(review.hidden, false);
   assert.equal(candidate.hidden, true);
-  assert.equal(candidateEmpty.hidden, false);
+  assert.equal(candidateEmpty.hidden, true);
   search.value = '';
   status.value = 'candidate';
   callbacks['public-status:change']();
   assert.equal(review.hidden, true);
   assert.equal(candidate.hidden, false);
-  assert.equal(reviewEmpty.hidden, false);
+  assert.equal(reviewEmpty.hidden, true);
+  search.value = 'no-such-result';
+  callbacks['public-search:input']();
+  assert.equal(empty.hidden, false);
   callbacks['public-reset:click']();
+  assert.equal(empty.hidden, true);
+  assert.equal(reset.disabled, true);
   assert.equal(search.value, '');
   assert.equal(status.value, 'all');
   assert.equal(search.focused, true);
