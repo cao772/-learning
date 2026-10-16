@@ -51,3 +51,16 @@
 .bilingual-columns form label{display:grid;gap:7px}
 .bilingual-columns textarea{width:100%;max-width:100%;line-height:1.6}
 @media(max-width:760px){.bilingual-columns{grid-template-columns:1fr;gap:15px}#translation-dialog{padding:15px}.bilingual-columns .actions button{width:100%}}
+
+/* Quiet, numbered content navigation, shared with the course visual language. */
+.public-toolbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:28px 0 8px}
+.public-toolbar input[type=search]{flex:none;width:280px;min-width:0;padding:8px 12px;font-size:13px}
+.public-toolbar select{font-size:13px;padding:8px 10px;background:transparent}
+.public-toolbar .quiet{border:0;color:var(--muted);font-size:12px}
+.content-tabs{display:flex;gap:26px;overflow-x:auto;border-bottom:1px solid var(--line);margin:12px 0 28px;scrollbar-width:thin}
+.content-tabs button{display:flex;align-items:center;gap:9px;flex-shrink:0;border:0;border-radius:0;border-bottom:3px solid transparent;background:transparent;padding:18px 0 16px;color:#68786e;font-size:15px;white-space:nowrap}
+.content-tabs button span{font-size:11px;font-weight:400;font-variant-numeric:tabular-nums;color:inherit}
+.content-tabs button.active{border-bottom-color:var(--green);background:transparent;color:var(--green);font-weight:650}
+.content-tabs button.active span{color:var(--green)}
+.content-tabs button:hover{color:var(--green);filter:none}
+@media(max-width:760px){.public-toolbar{gap:8px;margin-top:22px}.public-toolbar input[type=search]{width:210px;max-width:100%}.content-tabs{gap:23px;margin-top:10px}.content-tabs button{padding:13px 0;font-size:14px}.content-tabs button span{display:inline}}

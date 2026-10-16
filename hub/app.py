@@ -14,7 +14,7 @@ from werkzeug.security import check_password_hash
 from werkzeug.middleware.proxy_fix import ProxyFix
 from hub.discovery import INTERESTS, CATALOG, DEFAULT_WEIGHTS, rank_items, canonical_link, capture_key, normalize_profile
 from hub.research import connect_sources, research_brief, interest_collections, suggested_research
-from hub.content_category import classify_item, apply_owner_category, category_overview, LABELS as CATEGORY_LABELS
+from hub.content_category import classify_item, apply_owner_category, category_overview, CATEGORIES, LABELS as CATEGORY_LABELS
 from hub.translation import original_parts, source_fingerprint, translate_deepl, TranslationError
 from hub.recommendation import balance_recommendations
 
@@ -159,14 +159,14 @@ def create_app(config=None):
             for row in c.execute('SELECT body FROM items'):
                 x=json.loads(row['body'])
                 if x.get('expires_at') and x['verification_status']=='candidate' and dt.datetime.fromisoformat(x['expires_at'])<dt.datetime.now(dt.timezone.utc):continue
-                result.append({k:v for k,v in x.items() if k in fields})
+                result.append({**{k:v for k,v in x.items() if k in fields}, **classify_item(x)})
         return sorted(result,key=lambda x:x.get('published_at') or '',reverse=True)
     @app.get('/')
     def home():
         if app.config['PUBLIC']:
             with db() as c:
                 last=c.execute('SELECT at FROM batches ORDER BY at DESC LIMIT 1').fetchone()
-            return render_template('public.html',items=public_items(),last_sync=last['at'] if last else None)
+            return render_template('public.html',items=public_items(),last_sync=last['at'] if last else None,categories=CATEGORIES)
         return render_template('index.html',csrf=session['csrf'])
     @app.get('/admin')
     def admin():return render_template('index.html',csrf=session['csrf'])
