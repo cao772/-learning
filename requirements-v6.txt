@@ -1,0 +1,6 @@
+# Optional Mac CPU research environment only. Do not add to production image.
+sentence-transformers==5.1.2
+transformers==4.57.6
+torch==2.8.0
+numpy==2.0.2
+huggingface-hub==0.36.2
