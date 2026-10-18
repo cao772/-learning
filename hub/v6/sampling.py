@@ -4,10 +4,8 @@ Candidate proposals and hard counterexamples precede background coverage. An
 independent title-anchor retrieval route lets reviewers inspect potential
 false negatives absent from the embedding candidate list.
 """
-import hashlib
 import itertools
 import random
-import re
 from collections import Counter, defaultdict
 
 from hub.content_category import classify_item
@@ -28,13 +26,11 @@ COMMON = frozenset((
 def _alternate_candidates(items, known, limit=1200):
     """Independent rare-title-token retrieval, *not* embedding retrieval."""
     sources = defaultdict(list)
-    by_url = {x['url']: x for x in items}
     meta = {}
     for x in items:
+        # Avoid one-character CJK tokens: common words create false anchors.
         terms = {t for t in tokens(x.get('title', ''))
-                 if (len(t) >= 4 or '\\u4e00' <= t <= '\\u9fff') and t not in COMMON}
-        # CJK individual characters are generally too broad to serve as anchors.
-        terms = {t for t in terms if len(t) >= 3}
+                 if len(t) >= 3 and t not in COMMON}
         meta[x['url']] = (classify_item(x)['category'], publication(x))
         for term in sorted(terms):
             sources[term].append(x['url'])
@@ -137,7 +133,10 @@ def sample_pairs(items, proposals, article_limit=160, pair_limit=160, seed=20261
     missing = [u for u in order if u not in articles]
     while missing and len(picked) < pair_limit:
         a = missing.pop(0)
-        b = missing.pop(0) if missing else min(articles, default=None)
+        if missing:
+            b = missing.pop(0)
+        else:
+            b = next((u for u in sorted(articles) if pair_id(a, u) not in ids), None)
         if b is None:
             raise ValueError('Cannot cover a singleton article')
         if not add({'left': a, 'right': b, 'kind': 'unproposed'}, 'coverage_unlabeled'):
