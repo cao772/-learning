@@ -69,42 +69,16 @@ def analyze(db,model,revision,out,as_of,reviews=None):
 
 
 def packet(report,out):
-    """Deterministic stratified 160-article pool; labels deliberately blank."""
-    from hub.content_category import classify_item
-    from hub.v6.events import pair_id
-    buckets={}
-    for x in report['items']:
-        cat=classify_item(x)['category'];lang='zh' if any('\u4e00'<=c<='\u9fff' for c in x['title']) else 'other'
-        buckets.setdefault((cat,lang),[]).append(x)
-    chosen=[]
-    # Include top-10 ranking units for P@10, then round-robin strata.
-    urls={u for x in report['scores'][:10] for u in x['members']}
-    for x in report['items']:
-        if x['url'] in urls:chosen.append(x)
-    for values in buckets.values():values.sort(key=lambda x:x['url'])
-    while len(chosen)<min(160,len(report['items'])):
-        before=len(chosen)
-        for key in sorted(buckets):
-            while buckets[key] and buckets[key][0]['url'] in urls:buckets[key].pop(0)
-            if buckets[key] and len(chosen)<160:
-                x=buckets[key].pop(0);chosen.append(x);urls.add(x['url'])
-        if len(chosen)==before:break
-    selected={x['url'] for x in chosen};lookup={x['url']:x for x in report['items']}
-    proposals=sorted(report['pairs'],key=lambda p:(p['kind']=='same_topic',-p['cosine'],p['id']))
-    pair_lookup={p['id']:p for p in proposals}
-    pairs=[];seen=set();ordered=sorted(selected)
-    # Cover every sampled article before filling with hard candidate pairs.
-    for a,b in zip(ordered[::2],ordered[1::2]):
-        key=pair_id(a,b);pairs.append(pair_lookup.get(key,{'id':key,'left':a,'right':b,'kind':'unproposed'}));seen.add(key)
-    for p in proposals:
-        if len(pairs)>=160:break
-        if p['left'] in selected and p['right'] in selected and p['id'] not in seen:
-            pairs.append(p);seen.add(p['id'])
-    import itertools
-    for a,b in itertools.combinations(ordered,2):
-        if len(pairs)>=160:break
-        key=pair_id(a,b)
-        if key not in seen:pairs.append({'id':key,'left':a,'right':b,'kind':'unproposed'});seen.add(key)
+    """An auditable, proposal-inclusive 160-article/160-pair human packet.
+
+    A pair's sampling stratum is NOT a positive/negative truth label.
+    Do not destroy filled labels when regenerating packets.
+    """
+    from hub.v6.sampling import sample_pairs
+    chosen, pairs, manifest = sample_pairs(report['items'], report['pairs'])
+    selected={x['url'] for x in chosen}
+    lookup={x['url']:x for x in report['items']}
+    top10={s['event_id'] for s in report['scores'][:10]}
     preserve=set()
     for filename,field in [('pair-labels.csv','label'),('relevance-labels.csv','relevant')]:
         path=out/filename
@@ -114,18 +88,36 @@ def packet(report,out):
             if any(r.get(field) or r.get('annotator') for r in old):
                 if any(r.get('report_id')!=report['report_id'] for r in old):
                     raise ValueError('Existing labels belong to a different report; use a new --out directory')
+                if filename=='pair-labels.csv' and {r['pair_id'] for r in old}!={p['id'] for p in pairs}:
+                    raise ValueError('Review sampling changed after labeling; use a new --out directory')
                 preserve.add(filename)
     if 'pair-labels.csv' not in preserve:
-      with (out/'pair-labels.csv').open('w',newline='') as f:
-        writer=csv.writer(f);writer.writerow(['report_id','pair_id','left','right','left_title','right_title','label','annotator','provenance'])
-        for p in pairs:writer.writerow([report['report_id'],p['id'],p['left'],p['right'],lookup[p['left']]['title'],lookup[p['right']]['title'],'','',''])
+        with (out/'pair-labels.csv').open('w',newline='') as f:
+            writer=csv.writer(f)
+            writer.writerow(['report_id','pair_id','left','right','left_title','right_title',
+                             'sampling_stratum','candidate_kind','cosine','blockers',
+                             'label','annotator','provenance'])
+            for p in pairs:
+                writer.writerow([report['report_id'],p['id'],p['left'],p['right'],
+                                 lookup[p['left']]['title'],lookup[p['right']]['title'],
+                                 p['sampling_stratum'],p['kind'],p.get('cosine',''),
+                                 json.dumps(p.get('blockers',[]),ensure_ascii=False),
+                                 '','',''])
     if 'relevance-labels.csv' not in preserve:
-      with (out/'relevance-labels.csv').open('w',newline='') as f:
-        writer=csv.writer(f);writer.writerow(['report_id','event_id','urls','relevant','annotator','provenance'])
-        for s in report['scores']:
-            if set(s['members']) & selected:writer.writerow([report['report_id'],s['event_id'],' '.join(s['members']),'','',''])
-    atomic_json(out/'annotation-sample.json',{'articles':chosen,'sampling':'top10 plus category/language round-robin; deterministic',
-                                           'warning':'No human labels yet. Do not call automated labels ground truth.'})
+        with (out/'relevance-labels.csv').open('w',newline='') as f:
+            writer=csv.writer(f)
+            writer.writerow(['report_id','event_id','urls','title','top10','relevant','annotator','provenance'])
+            for s in report['scores']:
+                if s['event_id'] in top10 or set(s['members']) & selected:
+                    title=lookup[s['members'][0]].get('title','') if s['members'] else ''
+                    writer.writerow([report['report_id'],s['event_id'],' '.join(s['members']),
+                                     title, int(s['event_id'] in top10),'','',''])
+    atomic_json(out/'annotation-sample.json',{
+        'articles':chosen,
+        'sampling':manifest,
+        'report_id':report['report_id'],
+        'warning':'No human labels yet. Sampling strata are hypotheses, not ground truth. Corpus recall cannot be inferred.'
+    })
 
 
 def main():
