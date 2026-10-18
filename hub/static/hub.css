@@ -51,3 +51,38 @@
 .bilingual-columns form label{display:grid;gap:7px}
 .bilingual-columns textarea{width:100%;max-width:100%;line-height:1.6}
 @media(max-width:760px){.bilingual-columns{grid-template-columns:1fr;gap:15px}#translation-dialog{padding:15px}.bilingual-columns .actions button{width:100%}}
+
+/* Quiet, numbered content navigation, shared with the course visual language. */
+.public-toolbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:28px 0 8px}
+.public-toolbar input[type=search]{flex:none;width:280px;min-width:0;padding:8px 12px;font-size:13px}
+.public-toolbar select{font-size:13px;padding:8px 10px;background:transparent}
+.public-toolbar .quiet{border:0;color:var(--muted);font-size:12px}
+.content-tabs{display:flex;gap:26px;overflow-x:auto;border-bottom:1px solid var(--line);margin:12px 0 28px;scrollbar-width:thin}
+.content-tabs button{display:flex;align-items:center;gap:9px;flex-shrink:0;border:0;border-radius:0;border-bottom:3px solid transparent;background:transparent;padding:18px 0 16px;color:#68786e;font-size:15px;white-space:nowrap}
+.content-tabs button span{font-size:11px;font-weight:400;font-variant-numeric:tabular-nums;color:inherit}
+.content-tabs button.active{border-bottom-color:var(--green);background:transparent;color:var(--green);font-weight:650}
+.content-tabs button.active span{color:var(--green)}
+.content-tabs button:hover{color:var(--green);filter:none}
+@media(max-width:760px){.public-toolbar{gap:8px;margin-top:22px}.public-toolbar input[type=search]{width:210px;max-width:100%}.content-tabs{gap:23px;margin-top:10px}.content-tabs button{padding:13px 0;font-size:14px}.content-tabs button span{display:inline}}
+
+/* Public reading refinements stay scoped away from the owner workspace. */
+.public-page main{min-width:0}
+.public-page .heading h1{text-wrap:balance}
+.public-page section{scroll-margin-top:24px}
+.public-page article h2{max-width:800px;text-wrap:pretty;overflow-wrap:anywhere}
+.public-page .public-toolbar{gap:10px}
+.public-page .public-toolbar input[type=search]{width:240px;min-height:40px}
+.public-page .public-toolbar select{min-height:40px}
+.public-page .public-toolbar .quiet{min-height:40px;padding:6px 10px}
+.public-page .public-toolbar .quiet:disabled{opacity:.35;cursor:default}
+.public-page :focus-visible{outline:2px solid var(--green);outline-offset:4px}
+.public-page .content-tabs{scroll-padding-inline:4px;padding-inline:4px;overscroll-behavior-x:contain}
+.public-page .content-tabs button{min-height:48px}
+.public-page .content-tabs button:focus-visible{outline-offset:-4px}
+.public-page #reviewed>h1,.public-page #candidate>h1{font-size:30px;margin-top:32px}
+.public-page #candidate>p:not(.empty){font-size:13px;color:var(--muted)}
+.public-page #courses{margin-top:48px;display:grid;grid-template-columns:1fr 1fr;gap:0 30px}
+.public-page #courses>p{grid-column:1/-1;font-size:12px;color:var(--muted)}
+.public-page .course h2{font-size:20px}
+@media(min-width:761px) and (max-width:1100px){.public-page aside{width:190px;padding:32px 22px}.public-page main{margin-left:190px;padding:36px 32px}.public-page .heading h1{font-size:34px}.public-page .heading{flex-wrap:wrap}}
+@media(max-width:760px){.public-page aside nav{gap:24px;font-size:13px}.public-page aside nav a{white-space:nowrap;text-decoration:none;min-height:32px}.public-page .heading h1{font-size:30px}.public-page .heading{gap:10px}.public-page .public-toolbar{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}.public-page .public-toolbar input[type=search]{width:100%;grid-column:1/-1;font-size:16px}.public-page .public-toolbar select{max-width:100%;font-size:14px}.public-page .public-toolbar .quiet{font-size:13px}.public-page #courses{grid-template-columns:1fr}.public-page #reviewed>h1,.public-page #candidate>h1{font-size:26px}.public-page .content-tabs{margin-bottom:20px}.public-page article h2{font-size:20px}}
