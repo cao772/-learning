@@ -131,7 +131,7 @@ def sample_pairs(items, proposals, article_limit=160, pair_limit=160, seed=20261
             if buckets[category]:
                 order.append(buckets[category].pop(0))
     missing = [u for u in order if u not in articles]
-    while missing and len(picked) < pair_limit:
+    while missing and len(articles) < target and len(picked) < pair_limit:
         a = missing.pop(0)
         if missing:
             b = missing.pop(0)
