@@ -18,9 +18,17 @@ def evaluate(report,pair_labels,relevance):
     if any(r['left'] not in known or r['right'] not in known or r['pair_id']!=pair_id(r['left'],r['right']) for r in valid):raise ValueError('Unknown or mismatched labels')
     coverage=len({u for r in valid for u in (r['left'],r['right'])})
     positives=sum(r['label']=='same_event' for r in valid)
+    strata={}
+    for row in valid:
+        label=row.get('sampling_stratum') or 'legacy_unknown'
+        entry=strata.setdefault(label, {'reviewed':0,'same_event':0,'different_event':0})
+        entry['reviewed']+=1
+        entry[row['label']]+=1
     if len(valid)<100 or coverage<100 or positives==0 or positives==len(valid):
         return {'status':'blocked_pending_human_labels','labeled_pairs':len(valid),'article_coverage':coverage,
-                'precision':None,'recall':None,'false_merge_rate':None,'p_at_10':None,
+                'precision':None,'recall':None,'false_merge_rate':None,
+                'proposal_false_discovery_rate':None,'approved_merge_error_rate':None,'p_at_10':None,
+                'sampling_strata':strata,
                 'reason':'Require >=100 distinct human-labeled pairs covering >=100 articles, with positive and negative examples.'}
     proposed={x['id'] for x in report['pairs'] if x['kind'] in ('possible_event','possible_reprint')}
     tp=sum(r['pair_id'] in proposed and r['label']=='same_event' for r in valid)
@@ -32,10 +40,14 @@ def evaluate(report,pair_labels,relevance):
     rel={r['event_id']:r['relevant']=='1' for r in relevant if r.get('relevant') in ('0','1') and r.get('annotator','').strip() and r.get('provenance')=='human'}
     top=[s['event_id'] for s in report['scores'][:10]]
     return {'status':'evaluated_on_labeled_sample','labeled_pairs':len(valid),'article_coverage':coverage,
+            'true_positive':tp,'false_positive':fp,'false_negative':fn,
             'precision':tp/(tp+fp) if tp+fp else None,'recall':tp/(tp+fn),
-            'false_merge_rate':fp/(tp+fp) if tp+fp else None,
+            'proposal_false_discovery_rate':fp/(tp+fp) if tp+fp else None,
+            'false_merge_rate':None,  # Deprecated misleading alias: NOT an approved merge error rate.
+            'approved_merge_error_rate':None,  # Requires labeled, explicitly approved groups.
+            'sampling_strata':strata,
             'p_at_10':sum(rel[x] for x in top)/10 if len(top)==10 and all(x in rel for x in top) else None,
-            'scope':'candidate pair quality on labeled sample, not corpus-wide cluster quality; no automatic semantic merging'}
+            'scope':'Unweighted candidate pair precision/recall only within human-labeled sample; not corpus recall or approved cluster accuracy.'}
 
 
 def main():
