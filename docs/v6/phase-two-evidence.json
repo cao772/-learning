@@ -1,0 +1,38 @@
+{
+  "dataset_records": 593,
+  "relations": 2465,
+  "pending_event_pairs": 2,
+  "automatic_semantic_merges": 0,
+  "performance_cached": {
+    "items": 593,
+    "dimensions": 384,
+    "device": "cpu",
+    "threads": 2,
+    "batch_size": 16,
+    "embedding_cache_hit": true,
+    "embedding_seconds": 2.504,
+    "total_seconds": 3.673,
+    "max_rss_native_units": 365985792,
+    "rss_unit_note": "bytes on macOS; KiB on Linux",
+    "paid_api_calls": 0
+  },
+  "performance_cold": {
+    "embedding_seconds": 8.563,
+    "total_seconds": 9.65,
+    "peak_rss_bytes": 894877696
+  },
+  "quality": {
+    "status": "blocked_pending_human_labels",
+    "precision": null,
+    "recall": null,
+    "p_at_10": null
+  },
+  "cache_invariance": {
+    "articles": 593,
+    "cache_replays_per_source": 5,
+    "changes": 0,
+    "representations_identical": true,
+    "scores_identical": true
+  },
+  "report_id": "d1421a06a9222557088280e2f76b544a5696950ab2dbe6e4d6858efb785c339c"
+}

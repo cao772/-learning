@@ -10,6 +10,7 @@ import importlib.util
 import json
 import sqlite3
 from pathlib import Path
+from hub.v6.schema import sanitize, instant, text
 
 APP_ID = 0x58555636
 PUBLIC_FIELDS = ('url', 'title', 'summary', 'published_at', 'updated_at', 'scope', 'categories', 'sources')
@@ -41,31 +42,73 @@ def open_ledger(path):
         CREATE TABLE IF NOT EXISTS source_state(
           source TEXT PRIMARY KEY, last_success TEXT, published_watermark TEXT);
     ''')
+    # Phase-one timestamps mixed cache replay with upstream observations. Preserve
+    # them as legacy fields, but NEVER infer fresh evidence when migrating.
+    version = c.execute('PRAGMA user_version').fetchone()[0]
+    if version < 2:
+        with c:
+            c.execute('BEGIN IMMEDIATE')
+            for table in ('articles', 'observations'):
+                columns = {r[1] for r in c.execute('PRAGMA table_info(' + table + ')')}
+                for name in ('last_observed_at', 'last_fetched_at', 'last_changed_at', 'last_validated_at'):
+                    if name not in columns:
+                        c.execute('ALTER TABLE ' + table + ' ADD COLUMN ' + name + ' TEXT')
+            for source, url, body in c.execute('SELECT source,url,body FROM observations').fetchall():
+                cleaned = json.dumps(sanitize(json.loads(body)), ensure_ascii=False, sort_keys=True)
+                c.execute('UPDATE observations SET body=? WHERE source=? AND url=?', (cleaned, source, url))
+            for (url,) in c.execute('SELECT url FROM articles').fetchall():
+                canonical_article(c, url)
+            c.execute('PRAGMA user_version=2')
     return c
+
+
+def canonical_article(c, url):
+    # Stable source-ID ordering is an explicit representation policy, NOT an
+    # authority/credibility judgment. All alternate texts remain observations.
+    rows = c.execute('SELECT source,body FROM observations WHERE url=? ORDER BY source', (url,)).fetchall()
+    body = rows[0][1]
+    c.execute('UPDATE articles SET body=?,fingerprint=? WHERE url=?',
+              (body, hashlib.sha256(body.encode()).hexdigest(), url))
+    for name in ('last_observed_at', 'last_fetched_at', 'last_changed_at', 'last_validated_at'):
+        value = c.execute('SELECT MAX(' + name + ') FROM observations WHERE url=?', (url,)).fetchone()[0]
+        c.execute('UPDATE articles SET ' + name + '=? WHERE url=?', (value, url))
 
 
 def record(c, source, rows, info, canonical):
     """Atomic upsert plus durable per-source observations; never copies personal fields."""
-    at = info['checked_at']
+    at = instant(info['checked_at'])
+    if not at or len(at) == 10:
+        raise ValueError('checked_at must have a timezone')
+    source = text(source, 100, 'source')
     status = info['status']
+    if rows and status not in SUCCESS | {'cached', 'cache_interval'}:
+        raise ValueError('Failed responses cannot ingest rows')
     changed = 0
     with c:
         for raw in rows:
-            item = {key: raw.get(key) for key in PUBLIC_FIELDS}
-            if not isinstance(item['url'], str) or not item['url']:
-                raise ValueError('Missing public URL')
-            item['url'] = canonical(item['url'])
-            # Provenance is retained per source in observations, not collapsed into a
-            # fabricated independent-source count. Cache responses are not fresh fetches.
+            item = sanitize(raw, canonical)
             body = json.dumps(item, ensure_ascii=False, sort_keys=True)
             fp = hashlib.sha256(body.encode()).hexdigest()
-            old = c.execute('SELECT body FROM observations WHERE source=? AND url=?', (source, item['url'])).fetchone()
-            changed += int(old is None or old[0] != body)
-            c.execute('''INSERT INTO articles(url,body,fingerprint,first_seen,last_seen) VALUES(?,?,?,?,?)
-              ON CONFLICT(url) DO UPDATE SET body=excluded.body,fingerprint=excluded.fingerprint,
-              last_seen=excluded.last_seen''', (item['url'], body, fp, at, at))
-            c.execute('''INSERT INTO observations VALUES(?,?,?,?,?) ON CONFLICT(source,url)
-              DO UPDATE SET last_seen=excluded.last_seen,body=excluded.body''', (source, item['url'], at, at, body))
+            old = c.execute('SELECT body,last_fetched_at FROM observations WHERE source=? AND url=?', (source, item['url'])).fetchone()
+            # Stale cache or a 304 cannot overwrite a newer stored observation.
+            replace = old is None or status == 'ok'
+            delta = old is None or (replace and old[0] != body)
+            changed += int(delta)
+            c.execute('INSERT OR IGNORE INTO articles(url,body,fingerprint,first_seen,last_seen) VALUES(?,?,?,?,?)',
+                      (item['url'], body, fp, at, at))
+            c.execute('INSERT OR IGNORE INTO observations(source,url,first_seen,last_seen,body) VALUES(?,?,?,?,?)',
+                      (source, item['url'], at, at, body))
+            c.execute('UPDATE observations SET last_observed_at=? WHERE source=? AND url=?', (at, source, item['url']))
+            if replace:
+                c.execute('UPDATE observations SET body=? WHERE source=? AND url=?', (body, source, item['url']))
+            if status == 'ok':
+                c.execute('UPDATE observations SET last_fetched_at=?,last_validated_at=? WHERE source=? AND url=?',
+                          (at, at, source, item['url']))
+                if delta:
+                    c.execute('UPDATE observations SET last_changed_at=? WHERE source=? AND url=?', (at, source, item['url']))
+            elif status == 'not_modified':
+                c.execute('UPDATE observations SET last_validated_at=? WHERE source=? AND url=?', (at, source, item['url']))
+            canonical_article(c, item['url'])
         # Only a successful upstream response advances the success clock.
         if status in SUCCESS:
             dates = []
@@ -108,7 +151,7 @@ def run(collector, sources, state, offline=False):
                 rows, info = module.fetch(source, state / 'cache', offline=offline)
                 changed = record(c, source['id'], rows, info, module.canonical)
                 result.append({'source': source['id'], 'status': info['status'], 'count': len(rows), 'changed': changed})
-            report = {'stage':'V6 phase 1; no semantic clustering or quality scores yet',
+            report = {'stage':'V6 isolated ledger schema 2; candidate observations only',
                       'runs':result, 'articles':c.execute('SELECT COUNT(*) FROM articles').fetchone()[0]}
             temp = state / 'report.tmp'
             temp.write_text(json.dumps(report, ensure_ascii=False, indent=2))
