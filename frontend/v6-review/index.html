@@ -4,6 +4,8 @@
 <section class="import"><label>载入审核材料<input id="files" type="file" multiple accept=".json,.csv"></label><p>一次选择 report.json、pair-labels.csv 和 relevance-labels.csv。文件只在本页处理，不上传；已有标注可继续编辑。</p></section>
 <p id="status" role="status" aria-live="polite">尚未载入材料。</p>
 <div class="toolbar"><label>审核者<input id="reviewer" autocomplete="off" maxlength="100" placeholder="填写姓名或代号"></label><label>搜索<input id="search" type="search" placeholder="搜索标题或来源"></label><label class="check"><input id="pending" type="checkbox">只看未标注</label><button id="export" disabled>导出事件标注</button><button id="export-relevance" disabled>导出推荐标注</button></div>
+<div class="review-progress"><p id="progress" role="status">载入材料后显示审核进度。</p><button id="undo" disabled>撤销上次判断</button><button id="saved" hidden>我已保存两份文件</button></div>
+<label class="reading-option"><input id="expand" type="checkbox">展开完整摘要</label>
 <nav aria-label="审核类别"><button class="tab" data-mode="pairs" aria-pressed="true">01 <b>事件对照</b></button><button class="tab" data-mode="relevance" aria-pressed="false">02 <b>推荐相关性</b></button></nav>
 <section id="workspace" aria-label="审核内容"><div class="empty"><h2>先读材料，再下判断。</h2><p>载入后，在这里并排查看两篇文章。暂时无法判断的内容可以跳过。</p></div></section>
 <div class="pager"><button id="prev" disabled>← 上一条</button><span id="position"></span><button id="next" disabled>下一条 →</button></div>

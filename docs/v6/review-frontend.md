@@ -23,3 +23,11 @@ python3 -m http.server 8876 --bind 127.0.0.1 --directory frontend/v6-review
 - 手机断点截图与布局检查通过，document scrollWidth=clientWidth，无横向溢出。
 - [桌面截图](frontend-evidence/desktop.png)与[手机截图](frontend-evidence/mobile.png)均为合成材料，不是人工标注结果。
 - 本次不改线上入口，后续站主管理API由后端提供后再接入已有鉴权工作台。
+
+## 2026-10-20 审核体验优化
+
+- 新增两类标注进度与待保存状态；推荐值0正确计为已判断。
+- 支持撤销判断，恢复此前标签、审核者和provenance，并跳回对应条目；过滤条件自动清除以便看见被恢复条目。
+- 可完整展开摘要，保留原有紧凑阅读模式。
+- 下载请求不再自动解除离页提醒。两份文件均发起下载后，操作者确认已保存才清除待保存状态；任何新判断/撤销会重新要求导出。浏览器无法直接证明文件落盘，提示明确保留这一边界。
+- 4项Node测试通过；真实浏览器合成样本验证进度、撤销、摘要展开和双文件下载确认。新增截图见 frontend-evidence/optimized.png。未修改后端、CSV契约或质量门槛。
