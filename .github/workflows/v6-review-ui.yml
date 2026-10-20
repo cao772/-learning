@@ -1,0 +1,17 @@
+name: V6 review frontend contract
+on:
+  push:
+    paths: ['frontend/v6-review/**', 'tests/v6-review-ui.cjs', '.github/workflows/v6-review-ui.yml']
+  pull_request:
+    paths: ['frontend/v6-review/**', 'tests/v6-review-ui.cjs', '.github/workflows/v6-review-ui.yml']
+permissions:
+  contents: read
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: node --check frontend/v6-review/review.js
+      - run: node --test tests/v6-review-ui.cjs
