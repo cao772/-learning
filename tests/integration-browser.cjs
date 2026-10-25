@@ -48,6 +48,13 @@ async function waitForServer(proc) {
     assert.equal(await page.locator('[data-public-item]:visible').count(),1);
     await page.locator('#public-reset').click();
     assert.equal(await page.locator('[data-public-item]:visible').count(),2);
+    await page.locator('#public-search').fill('no-matching-content');
+    await page.locator('[data-clear-public]').click();
+    assert.equal(await page.locator('[data-public-item]:visible').count(),2);
+    await page.locator('#public-search').fill('no-matching-content');
+    await page.locator('aside nav a[href="#reviewed"]').click();
+    assert.equal(await page.locator('#reviewed').isVisible(),true);
+    assert.equal(await page.locator('#public-search').inputValue(),'');
     await page.screenshot({path:path.join(evidence,'01-public-desktop.png'),fullPage:true});
 
     assert.equal((await guest.request.get(BASE+'/api/discover')).status(),401,'private discover');
@@ -60,8 +67,12 @@ async function waitForServer(proc) {
     }
 
     await page.goto(BASE+'/admin');
+    await page.locator('.password-toggle').click();
+    assert.equal(await page.locator('#password').getAttribute('type'),'text');
+    await page.locator('.password-toggle').click();
+    assert.equal(await page.locator('#password').getAttribute('type'),'password');
     await page.locator('input[name="password"]').fill('browser-test-password');
-    await page.locator('form button').click();
+    await page.locator('form button[type="submit"]').click();
     await page.locator('button[data-view="discover"]').waitFor();
     await page.locator('button[data-view="discover"]').click();
     await page.getByRole('heading',{name:'我的兴趣权重'}).waitFor();
