@@ -13,6 +13,11 @@ from werkzeug.security import generate_password_hash
 from hub.app import ROOT, initialize, ingest, connection
 
 PRIVATE=ROOT/'.private'
+def require_collection_success(source):
+    status=json.loads((source/'收件箱/status.json').read_text())
+    if not any(s.get('status') in ('ok','empty','not_modified','cache_interval') for s in status.get('sources',[])):
+        raise RuntimeError('All collection sources failed; retry later')
+
 def load_config():
     path=PRIVATE/'config.json'
     if path.exists():
@@ -91,12 +96,14 @@ def main():
             if log.stat().st_size>2_000_000:log.write_text('')
         with (args.source/'收件箱/.hub-sync.lock').open('w') as lock:
             try:fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
-            except BlockingIOError:print('Sync already running');return
+            except BlockingIOError:print('Sync already running');sys.exit(75)
             try:
                 url=args.url or os.environ.get('HUB_SYNC_URL')
                 if url and not (url.startswith('https://') or url.startswith('http://127.0.0.1:')):raise ValueError('Remote sync requires HTTPS')
                 import_feedback(args.source,get_feedback(url))
-                if args.collect:subprocess.run([sys.executable,str(args.source/'运行/inbox.py'),'collect'],check=True,stdout=subprocess.DEVNULL,timeout=180)
+                if args.collect:
+                    subprocess.run([sys.executable,str(args.source/'运行/inbox.py'),'collect'],check=True,stdout=subprocess.DEVNULL,timeout=180)
+                    require_collection_success(args.source)
                 payload=export_source(args.source)
                 url=args.url or os.environ.get('HUB_SYNC_URL')
                 if url:
