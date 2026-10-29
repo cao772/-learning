@@ -46,6 +46,9 @@ class HubTests(unittest.TestCase):
    html=response.get_data(as_text=True)
    self.assertIn('冀ICP备2026047626号-1',html)
    self.assertIn('https://beian.miit.gov.cn/',html)
+ def test_www_domain_is_accepted(self):
+  self.app.config['PUBLIC']=True
+  self.assertEqual(self.c.get('/',headers={'Host':'www.yanhaoo.com'}).status_code,200)
  def test_offsite_snapshot_stream_is_valid_and_consistent(self):
   self.login()
   self.put('private-offsite-check',{'note':'test-only'})

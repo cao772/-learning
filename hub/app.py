@@ -84,7 +84,7 @@ def ingest(path,payload):
 
 def create_app(config=None):
     app=Flask(__name__)
-    app.config.update(PUBLIC=os.environ.get('HUB_PUBLIC','0')=='1',SECRET_KEY=os.environ.get('HUB_SECRET'),DB=os.environ.get('HUB_DB',str(ROOT/'.private/hub.sqlite')),PASSWORD_HASH=os.environ.get('HUB_PASSWORD_HASH'),INGEST_TOKEN=os.environ.get('HUB_INGEST_TOKEN'),MAX_CONTENT_LENGTH=2*1024*1024,SESSION_COOKIE_HTTPONLY=True,SESSION_COOKIE_SAMESITE='Strict',SESSION_COOKIE_SECURE=os.environ.get('HUB_SECURE','1')=='1',PERMANENT_SESSION_LIFETIME=dt.timedelta(hours=12),TRUST_PROXY=os.environ.get('HUB_TRUST_PROXY','0')=='1',TRUSTED_HOSTS=['localhost','127.0.0.1','yanhaoo.com'])
+    app.config.update(PUBLIC=os.environ.get('HUB_PUBLIC','0')=='1',SECRET_KEY=os.environ.get('HUB_SECRET'),DB=os.environ.get('HUB_DB',str(ROOT/'.private/hub.sqlite')),PASSWORD_HASH=os.environ.get('HUB_PASSWORD_HASH'),INGEST_TOKEN=os.environ.get('HUB_INGEST_TOKEN'),MAX_CONTENT_LENGTH=2*1024*1024,SESSION_COOKIE_HTTPONLY=True,SESSION_COOKIE_SAMESITE='Strict',SESSION_COOKIE_SECURE=os.environ.get('HUB_SECURE','1')=='1',PERMANENT_SESSION_LIFETIME=dt.timedelta(hours=12),TRUST_PROXY=os.environ.get('HUB_TRUST_PROXY','0')=='1',TRUSTED_HOSTS=['localhost','127.0.0.1','yanhaoo.com','www.yanhaoo.com'])
     app.config.update(TRANSLATE_KEY=os.environ.get('HUB_TRANSLATE_DEEPL_KEY',''),TRANSLATE_PLAN=os.environ.get('HUB_TRANSLATE_DEEPL_PLAN','free'))
     if config: app.config.update(config)
     # Trust only the single Caddy hop in production; preflight direct access must disable this.
