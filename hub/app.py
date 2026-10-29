@@ -400,5 +400,7 @@ def create_app(config=None):
         markup=(ROOT/COURSES[course]).read_text()
         bridge='<script src="/static/course-sync.js"></script>'
         if authenticated():markup=markup.replace('<head>','<head>'+bridge,1)
+        filing='<div style="text-align:center;padding:20px;font-size:12px"><a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">冀ICP备2026047626号-1</a></div>'
+        markup=markup.replace('</body>',filing+'</body>',1)
         return markup
     return app
