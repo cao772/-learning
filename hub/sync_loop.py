@@ -14,7 +14,7 @@ def tick(marker, now=None):
         previous = json.loads(marker.read_text()).get('day')
     except (OSError, ValueError, AttributeError):
         previous = None
-    collect = now.hour >= 9 and previous != day
+    collect = now.hour >= 2 and previous != day
     args = [sys.executable, '-m', 'hub.manage', 'sync', '--source', '/upstream']
     if collect:
         args.append('--collect')
