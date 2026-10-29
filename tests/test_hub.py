@@ -38,6 +38,17 @@ class HubTests(unittest.TestCase):
   self.assertEqual(self.c.get('/admin').status_code,200)
   self.assertIn('OWNER-SECRET',self.c.get('/api/items').get_data(as_text=True))
   self.assertIn('/static/course-sync.js',self.c.get('/learn/llm').get_data(as_text=True))
+ def test_filing_link_on_public_pages(self):
+  self.app.config['PUBLIC']=True
+  for path in ['/', '/learn/llm', '/learn/lab']:
+   response=self.c.get(path)
+   self.assertEqual(response.status_code,200)
+   html=response.get_data(as_text=True)
+   self.assertIn('冀ICP备2026047626号-1',html)
+   self.assertIn('https://beian.miit.gov.cn/',html)
+ def test_www_domain_is_accepted(self):
+  self.app.config['PUBLIC']=True
+  self.assertEqual(self.c.get('/',headers={'Host':'www.yanhaoo.com'}).status_code,200)
  def test_offsite_snapshot_stream_is_valid_and_consistent(self):
   self.login()
   self.put('private-offsite-check',{'note':'test-only'})
