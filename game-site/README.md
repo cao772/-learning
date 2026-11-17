@@ -29,7 +29,7 @@ Caddy 的 `game.yanhaoo.com` 独立站点通过已有 `lab-public` 只读挂载�
 
 把本次 `dist/` 的公开内容放进 `lab-public/.game-releases/<release-id>/`，不复制本地 `.game-build-output` 标记，再切换 `lab-public/game` 相对链接到 `.game-releases/<release-id>`。同一子域名后续发布时，已打开的旧页面仍使用自己的版本资源，不会因入口切换而混用新旧 JS、PCK 或 WASM。主页入口为唯一的 `<a href="https://game.yanhaoo.com/">游戏</a>`，后续升级不重复添加导航。
 
-主站 `yanhaoo.com` 不提供游戏静态文件；旧 `/game`、`/game/*` 只重定向到子域名。游戏站点没有 `reverse_proxy hub`，游戏请求不进入 Flask 应用。当前方案仍共享 Caddy、服务器与网络带宽，并不是独立物理服务器或独立带宽。
+主站 `yanhaoo.com` 不提供游戏静态文件；旧 `/game`、`/game/*` 只重定向到子域名，旧 `/game-assets/*` 保留路径重定向到子域名资源。游戏资源响应的 CORS 仅允许 `https://yanhaoo.com`，用于过渡迁移前已打开的旧页面；不开放任意来源或跨站凭据。游戏站点没有 `reverse_proxy hub`，游戏请求不进入 Flask 应用。当前方案仍共享 Caddy、服务器与网络带宽，并不是独立物理服务器或独立带宽。
 
 每个版本目录发布后保持不变，不可在同一版本路径覆盖新内容。HTML、JS、PCK、WASM、worklet 与其压缩副本作为一组保存；回滚只恢复入口链接和必要配置，保留旧版本供已打开页面继续读取。Caddy 按客户端能力优先提供预压缩 Brotli，其次 gzip，再回退原文件。游戏仅由浏览器执行，网站服务器提供静态文件。
 
@@ -43,4 +43,6 @@ Caddy 的 `game.yanhaoo.com` 独立站点通过已有 `lab-public` 只读挂载�
 
 ## 本轮发布记录
 
-旧路径 `https://yanhaoo.com/game/` 曾完成 `game-033-80f791f58c51` 的部署命令；之后作者要求改用独立游戏子域名。当前记录为**迁移中**：目标 `https://game.yanhaoo.com/` 的 DNS、HTTPS 和生产路由切换由主执行者处理，这次源码归档不代表新域名已上线。按作者要求未运行 HTTP、浏览器、游戏或其他 QA，不宣称体验验收通过。
+主执行者已记录 `https://game.yanhaoo.com/` 子域名的部署命令完成：2026-11-17 添加 game A 记录，发布独立静态站点和主站跳转，Caddy 随后记录证书取得成功。当前运行内容版本为 `game-033-80f791f58c51`。后续游戏更新只切换静态版本，主页入口不需要再次修改。
+
+以上是部署命令与证书签发状态，未执行 HTTP、浏览器、游戏或其他 QA，不代表体验验收通过。

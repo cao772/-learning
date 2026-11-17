@@ -5,6 +5,8 @@ yanhaoo.com {
     }
     @legacyGame path /game /game/*
     redir @legacyGame https://game.yanhaoo.com/ 308
+    @legacyGameAssets path /game-assets/*
+    redir @legacyGameAssets https://game.yanhaoo.com{uri} 308
     handle {
         reverse_proxy hub:8000
     }
@@ -16,6 +18,7 @@ game.yanhaoo.com {
     handle_path /game-assets/* {
         root * /srv/lab/.game-releases
         header Cache-Control "public, max-age=31536000, immutable"
+        header Access-Control-Allow-Origin https://yanhaoo.com
         file_server {
             precompressed br gzip
         }
