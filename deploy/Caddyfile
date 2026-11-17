@@ -10,7 +10,7 @@ yanhaoo.com {
         header X-Content-Type-Options nosniff
         header Referrer-Policy strict-origin-when-cross-origin
         file_server {
-            precompressed gzip
+            precompressed br gzip
         }
     }
     handle {
