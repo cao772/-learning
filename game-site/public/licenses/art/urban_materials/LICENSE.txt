@@ -1,0 +1,9 @@
+Poly Haven texture assets: CC0 1.0 Universal.
+https://creativecommons.org/publicdomain/zero/1.0/
+https://polyhaven.com/license
+
+Grey Plaster 02 and Asphalt 02 by Rob Tuytel.
+Concrete Pavement by Charlotte Baglioni.
+Unmodified 1K JPEG texture maps, renamed for local resource use.
+SOURCE.json records exact download URLs, upstream MD5 and local SHA256.
+This license applies to the nine JPEG files in this directory.

@@ -3,5 +3,17 @@ yanhaoo.com {
     request_body {
         max_size 2MB
     }
-    reverse_proxy hub:8000
+    redir /game /game/ 308
+    handle_path /game/* {
+        root * /srv/game
+        header Cache-Control "no-cache"
+        header X-Content-Type-Options nosniff
+        header Referrer-Policy strict-origin-when-cross-origin
+        file_server {
+            precompressed gzip
+        }
+    }
+    handle {
+        reverse_proxy hub:8000
+    }
 }

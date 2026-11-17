@@ -12,3 +12,8 @@ AI信息整合/
 *.sqlite*
 backups/
 !.env.example
+
+# Built game runtime and local release reports
+/game-public/
+/game-site/dist/
+/game-site/build-manifest.json
