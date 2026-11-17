@@ -69,7 +69,7 @@ def build(runtime, prepared=False, release=''):
         subprocess.run([node,'-e',compressor,str(game),str(output/'index.html')],check=True)
     files={str(p.relative_to(output)):{'bytes':p.stat().st_size,'sha256':hashlib.sha256(p.read_bytes()).hexdigest()}
            for p in sorted(output.rglob('*')) if p.is_file() and p.name!='.game-build-output'}
-    (ROOT/'build-manifest.json').write_text(json.dumps({'release':release,'release_id':release_id,'asset_base':asset_base,'prepared_export':prepared,'files':files},indent=2)+'\n')
+    (ROOT/'build-manifest.json').write_text(json.dumps({'release':release,'release_id':release_id,'public_url':'https://game.yanhaoo.com/','asset_base':asset_base,'prepared_export':prepared,'files':files},indent=2)+'\n')
     print(f'Built {len(files)} public files for {release_id} in {output}')
 
 if __name__=='__main__':
