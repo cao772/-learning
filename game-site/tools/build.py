@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Assemble a direct Godot game entry, without copying the source project."""
 from pathlib import Path
-import argparse, gzip, hashlib, json, re, shutil
+import argparse, gzip, hashlib, json, re, shutil, subprocess
 
 ROOT=Path(__file__).resolve().parents[1]
 RUNTIME=('game.html','game.js','game.wasm','game.pck','game.png','game.icon.png',
@@ -32,18 +32,27 @@ def build(runtime, prepared=False, release=''):
     game=output/'game.html';html=game.read_text()
     if not prepared:
         html=re.sub(r'<script id="public-game-bridge"[^>]*></script>\s*', '', html)
-        game.write_text(html)
+    # Strip any previous release base before computing the new content identity.
+    html=re.sub(r'\s*<base\b[^>]*>', '', html, flags=re.IGNORECASE)
+    game.write_text(html)
+    identity=[(str(p.relative_to(output)),hashlib.sha256(p.read_bytes()).hexdigest())
+              for p in sorted(output.rglob('*')) if p.is_file() and p.name!='.game-build-output']
+    tag=re.sub(r'[^A-Za-z0-9._-]', '-', release).strip('.-') or 'web'
+    release_id='game-'+tag+'-'+hashlib.sha256(json.dumps(identity,sort_keys=True).encode()).hexdigest()[:12]
+    asset_base='/game-assets/'+release_id+'/'
+    html=re.sub(r'(<head\b[^>]*>)', lambda match: match.group(1)+'\n<base href="'+asset_base+'">', html, count=1, flags=re.IGNORECASE)
+    game.write_text(html)
     shutil.copyfile(game,output/'index.html')
-    # A prepared export already owns its loading screen and compression files.
-    # Keep these bytes together; never alter its HTML before reusing sidecars.
+    # Pin runtime files to one release. Reuse only unchanged runtime sidecars;
+    # HTML has a new base URL and must receive fresh compressed copies.
     if prepared:
         for name in RUNTIME:
+            if name=='game.html':
+                continue
             for suffix in ('.br','.gz'):
                 source=runtime/(name+suffix)
                 if source.is_file() and not source.is_symlink():
                     shutil.copyfile(source,output/(name+suffix))
-                    if name=='game.html':
-                        shutil.copyfile(source,output/('index.html'+suffix))
     sizes=json.loads(re.search(r'const GODOT_CONFIG = (\{[^\n]+\});',html).group(1))['fileSizes']
     for name,size in sizes.items():
         assert name in RUNTIME and (output/name).stat().st_size==size,f'Export mismatch: {name}'
@@ -54,10 +63,14 @@ def build(runtime, prepared=False, release=''):
             data=p.read_bytes()
             if len(data)>1024 and not p.with_name(p.name+'.gz').exists():
                 p.with_name(p.name+'.gz').write_bytes(gzip.compress(data,compresslevel=9,mtime=0))
+    node=shutil.which('node')
+    if node:
+        compressor="const fs=require('fs'),z=require('zlib');for(const p of process.argv.slice(1)){fs.writeFileSync(p+'.br',z.brotliCompressSync(fs.readFileSync(p),{params:{[z.constants.BROTLI_PARAM_QUALITY]:11}}));}"
+        subprocess.run([node,'-e',compressor,str(game),str(output/'index.html')],check=True)
     files={str(p.relative_to(output)):{'bytes':p.stat().st_size,'sha256':hashlib.sha256(p.read_bytes()).hexdigest()}
            for p in sorted(output.rglob('*')) if p.is_file() and p.name!='.game-build-output'}
-    (ROOT/'build-manifest.json').write_text(json.dumps({'release':release,'prepared_export':prepared,'files':files},indent=2)+'\n')
-    print(f'Built {len(files)} public files in {output}')
+    (ROOT/'build-manifest.json').write_text(json.dumps({'release':release,'release_id':release_id,'asset_base':asset_base,'prepared_export':prepared,'files':files},indent=2)+'\n')
+    print(f'Built {len(files)} public files for {release_id} in {output}')
 
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)

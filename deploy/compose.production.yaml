@@ -23,7 +23,7 @@ services:
     ports: ["80:80", "443:443", "443:443/udp"]
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - ../game-public:/srv/game:ro
+      - ../lab-public:/srv/lab:ro
       - caddy_data:/data
       - caddy_config:/config
     restart: unless-stopped

@@ -4,8 +4,17 @@ yanhaoo.com {
         max_size 2MB
     }
     redir /game /game/ 308
+    handle_path /game-assets/* {
+        root * /srv/lab/.game-releases
+        header Cache-Control "public, max-age=31536000, immutable"
+        header X-Content-Type-Options nosniff
+        header Referrer-Policy strict-origin-when-cross-origin
+        file_server {
+            precompressed br gzip
+        }
+    }
     handle_path /game/* {
-        root * /srv/game
+        root * /srv/lab/game
         header Cache-Control "no-cache"
         header X-Content-Type-Options nosniff
         header Referrer-Policy strict-origin-when-cross-origin
